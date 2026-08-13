@@ -2,8 +2,28 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr
 
-from typing import Literal
+from enum import Enum
 
+class TaskStatus(str, Enum):
+    TODO = "TODO"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
+    
+class TaskPriority(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"    
+
+class TaskSortBy(str, Enum):
+    ID = "id"
+    TITLE = "title"
+    PRIORITY = "priority"
+    DUE_DATE = "due_date"
+
+
+class TaskSortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
 
 class UserCreate(BaseModel):
     full_name: str
@@ -34,8 +54,8 @@ class UserUpdate(BaseModel):
 class TaskCreate(BaseModel):
     title: str
     description: str | None = None
-    status: str = "TODO"
-    priority: str = "MEDIUM"
+    status: TaskStatus = TaskStatus.TODO
+    priority: TaskPriority = TaskPriority.MEDIUM
     assigned_to: int
     due_date: datetime | None = None
 
@@ -60,8 +80,8 @@ class TaskResponse(BaseModel):
 class TaskUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
-    status: Literal["TODO", "IN_PROGRESS", "DONE"] | None = None
-    priority: str | None = None
+    status: TaskStatus | None = None
+    priority: TaskPriority | None = None
     assigned_to: int | None = None
     due_date: datetime | None = None
     

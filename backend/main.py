@@ -13,7 +13,11 @@ from schemas import (
     TaskResponse,
     TaskUpdate,
     LoginRequest,
-    TokenResponse
+    TokenResponse,
+    TaskStatus,
+    TaskPriority,
+    TaskSortBy,
+    TaskSortOrder
 )
 from security import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -305,18 +309,57 @@ def create_task(
 
 @app.get("/tasks", response_model=list[TaskResponse])
 def get_tasks(
+    status: TaskStatus | None = None,
+    priority: TaskPriority | None = None,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: TaskSortBy = TaskSortBy.ID,
+    sort_order: TaskSortOrder = TaskSortOrder.ASC,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
+    query = db.query(Task)
+
+    if current_user.role == "USER":
+        query = query.filter(
+            Task.assigned_to == current_user.id
+        )
+
+    if status:
+        query = query.filter(
+            Task.status == status
+        )
+
+    if priority:
+        query = query.filter(
+            Task.priority == priority
+        )
+
+    if sort_by == TaskSortBy.ID:
+        sort_column = Task.id
+
+    elif sort_by == TaskSortBy.TITLE:
+        sort_column = Task.title
+
+    elif sort_by == TaskSortBy.PRIORITY:
+        sort_column = Task.priority
+
+    elif sort_by == TaskSortBy.DUE_DATE:
+        sort_column = Task.due_date
+
+    if sort_order == TaskSortOrder.ASC:
+        query = query.order_by(sort_column)
+    else:
+        query = query.order_by(sort_column.desc())
+
     tasks = (
-        db.query(Task)
-        .filter(Task.assigned_to == current_user.id)
-        .order_by(Task.id)
+        query
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
     return tasks
-
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(
@@ -324,14 +367,16 @@ def get_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == task_id,
+    query = db.query(Task).filter(
+        Task.id == task_id
+    )
+
+    if current_user.role == "USER":
+        query = query.filter(
             Task.assigned_to == current_user.id
         )
-        .first()
-    )
+
+    task = query.first()
 
     if not task:
         raise HTTPException(
@@ -348,14 +393,16 @@ def update_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == task_id,
+    query = db.query(Task).filter(
+        Task.id == task_id
+    )
+
+    if current_user.role == "USER":
+        query = query.filter(
             Task.assigned_to == current_user.id
         )
-        .first()
-    )
+
+    task = query.first()
 
     if not task:
         raise HTTPException(
@@ -363,7 +410,9 @@ def update_task(
             detail="Görev bulunamadı."
         )
 
-    update_data = task_data.model_dump(exclude_unset=True)
+    update_data = task_data.model_dump(
+        exclude_unset=True
+    )
 
     if current_user.role == "USER":
         allowed_fields = {"status"}
@@ -378,7 +427,7 @@ def update_task(
     if "assigned_to" in update_data:
         assigned_user = (
             db.query(User)
-            .filter(User.id == task_data.assigned_to)
+            .filter(User.id == update_data["assigned_to"])
             .first()
         )
 
@@ -408,12 +457,15 @@ def delete_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Sadece ADMIN görev silebilir."
+        )
+
     task = (
         db.query(Task)
-        .filter(
-            Task.id == task_id,
-            Task.assigned_to == current_user.id
-        )
+        .filter(Task.id == task_id)
         .first()
     )
 
