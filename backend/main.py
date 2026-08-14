@@ -65,46 +65,6 @@ def get_current_user(
 
     return user
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    token = credentials.credentials
-
-    payload = decode_access_token(token)
-
-    if payload is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Geçersiz veya süresi dolmuş token."
-        )
-
-    user_id = payload.get("sub")
-
-    if user_id is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Token içerisinde kullanıcı bilgisi bulunamadı."
-        )
-
-    user = db.query(User).filter(
-        User.id == int(user_id)
-    ).first()
-
-    if user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Kullanıcı bulunamadı."
-        )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=403,
-            detail="Kullanıcı hesabı aktif değil."
-        )
-
-    return user
-
 
 def require_role(required_role: str):
     def role_checker(
@@ -139,6 +99,7 @@ def database_test(db: Session = Depends(get_db)):
 @app.post("/users", response_model=UserResponse, status_code=201)
 def create_user(
     user_data: UserCreate,
+    current_user: User = Depends(require_role("ADMIN")),
     db: Session = Depends(get_db)
 ):
     existing_user = (
@@ -170,8 +131,11 @@ def create_user(
 
 
 @app.get("/users", response_model=list[UserResponse])
-def get_users(db: Session = Depends(get_db)):
-    users = db.query(User).order_by(User.id).all()
+def get_users(
+    current_user: User = Depends(require_role("ADMIN")),
+    db: Session = Depends(get_db)
+):
+    users = db.query(User).all()
 
     return users
 
@@ -179,8 +143,15 @@ def get_users(db: Session = Depends(get_db)):
 @app.get("/users/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.role == "USER" and current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Başka kullanıcıların bilgilerini görüntüleme yetkiniz yok."
+        )
+
     user = (
         db.query(User)
         .filter(User.id == user_id)
@@ -200,8 +171,29 @@ def get_user(
 def update_user(
     user_id: int,
     user_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # USER başka bir kullanıcıyı güncelleyemez
+    if current_user.role == "USER" and current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Başka kullanıcıların bilgilerini güncelleme yetkiniz yok."
+        )
+
+    # USER sadece full_name değiştirebilir
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if current_user.role == "USER":
+        allowed_fields = {"full_name"}
+
+        for field in update_data:
+            if field not in allowed_fields:
+                raise HTTPException(
+                    status_code=403,
+                    detail="USER sadece kendi adını değiştirebilir."
+                )
+
     user = (
         db.query(User)
         .filter(User.id == user_id)
@@ -213,24 +205,6 @@ def update_user(
             status_code=404,
             detail="Kullanıcı bulunamadı."
         )
-
-    if user_data.email is not None:
-        existing_user = (
-            db.query(User)
-            .filter(
-                User.email == user_data.email,
-                User.id != user_id
-            )
-            .first()
-        )
-
-        if existing_user:
-            raise HTTPException(
-                status_code=409,
-                detail="Bu email adresi başka bir kullanıcı tarafından kullanılıyor."
-            )
-
-    update_data = user_data.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
         setattr(user, field, value)
@@ -244,6 +218,7 @@ def update_user(
 @app.delete("/users/{user_id}")
 def delete_user(
     user_id: int,
+    current_user: User = Depends(require_role("ADMIN")),
     db: Session = Depends(get_db)
 ):
     user = (
@@ -261,6 +236,7 @@ def delete_user(
     user.is_active = False
 
     db.commit()
+    db.refresh(user)
 
     return {
         "message": "Kullanıcı pasif hale getirildi."
