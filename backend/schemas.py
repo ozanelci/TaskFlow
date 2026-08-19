@@ -8,6 +8,7 @@ class TaskStatus(str, Enum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
+    CANCELLED = "CANCELLED"
     
 class TaskPriority(str, Enum):
     LOW = "LOW"
@@ -58,6 +59,12 @@ class TaskCreate(BaseModel):
     priority: TaskPriority = TaskPriority.MEDIUM
     assigned_to: int
     due_date: datetime | None = None
+    
+class DeadlineStatus(str, Enum):
+    NO_DUE_DATE = "NO_DUE_DATE"
+    NORMAL = "NORMAL"
+    OVERDUE = "OVERDUE"
+    UPCOMING = "UPCOMING"
 
 
 class TaskResponse(BaseModel):
@@ -71,10 +78,38 @@ class TaskResponse(BaseModel):
     due_date: datetime | None
     created_at: datetime
     updated_at: datetime
+    deadline_status: DeadlineStatus
+    previous_status: TaskStatus | None
 
     model_config = {
         "from_attributes": True
     }
+    
+class TaskHistoryResponse(BaseModel):
+    id: int
+    task_id: int
+    old_status: TaskStatus | None
+    new_status: TaskStatus
+    changed_by: int
+    changed_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
+    
+class TaskSummary(BaseModel):
+    total: int
+    todo: int
+    in_progress: int
+    done: int
+    cancelled: int
+    overdue: int
+    upcoming: int
+    no_due_date: int
+    low_priority: int
+    medium_priority: int
+    high_priority: int
+
 
 
 class TaskUpdate(BaseModel):

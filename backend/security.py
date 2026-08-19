@@ -31,7 +31,7 @@ from jose import jwt
 
 SECRET_KEY = "taskflow-super-secret-key"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
 
 def create_access_token(data: dict) -> str:

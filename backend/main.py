@@ -2,22 +2,26 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 
 from database import get_db
-from models import User, Task
+from models import User, Task, TaskHistory
 from schemas import (
     UserCreate,
     UserResponse,
     UserUpdate,
     TaskCreate,
     TaskResponse,
+    TaskHistoryResponse,
     TaskUpdate,
+    TaskSummary,
     LoginRequest,
     TokenResponse,
     TaskStatus,
     TaskPriority,
     TaskSortBy,
-    TaskSortOrder
+    TaskSortOrder,
+    DeadlineStatus
 )
 from security import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -64,6 +68,27 @@ def get_current_user(
         )
 
     return user
+
+def get_deadline_status(task):
+    if task.due_date is None:
+        return DeadlineStatus.NO_DUE_DATE
+
+    if task.status in [
+        TaskStatus.DONE,
+        TaskStatus.CANCELLED
+    ]:
+        return DeadlineStatus.NORMAL
+
+    now = datetime.now()
+
+    if task.due_date < now:
+        return DeadlineStatus.OVERDUE
+
+    if task.due_date <= now + timedelta(days=3):
+        return DeadlineStatus.UPCOMING
+
+    return DeadlineStatus.NORMAL
+
 
 
 def require_role(required_role: str):
@@ -183,6 +208,16 @@ def update_user(
 
     # USER sadece full_name değiştirebilir
     update_data = user_data.model_dump(exclude_unset=True)
+    
+    if "due_date" in update_data:
+        new_due_date = update_data["due_date"]
+
+        if new_due_date is not None:
+            if new_due_date < datetime.now(new_due_date.tzinfo):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Son teslim tarihi geçmiş bir tarih olamaz."
+            )
 
     if current_user.role == "USER":
         allowed_fields = {"full_name"}
@@ -243,12 +278,18 @@ def delete_user(
     }
 
 
-@app.post("/tasks", response_model=TaskResponse, status_code=201)
+@app.post("/tasks", response_model=TaskResponse)
 def create_task(
     task_data: TaskCreate,
-    current_user: User = Depends(require_role("ADMIN")),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Sadece ADMIN görev oluşturabilir."
+        )
+
     assigned_user = (
         db.query(User)
         .filter(User.id == task_data.assigned_to)
@@ -266,27 +307,52 @@ def create_task(
             status_code=400,
             detail="Pasif kullanıcıya görev atanamaz."
         )
-
-    new_task = Task(
+        
+    if task_data.due_date:
+        if task_data.due_date < datetime.now(task_data.due_date.tzinfo):
+            raise HTTPException(
+                status_code=400,
+                detail="Son teslim tarihi geçmiş bir tarih olamaz."
+        )    
+        
+    task = Task(
         title=task_data.title,
         description=task_data.description,
         status=task_data.status,
         priority=task_data.priority,
         assigned_to=task_data.assigned_to,
         created_by=current_user.id,
-        due_date=task_data.due_date,
-    )
-
-    db.add(new_task)
+        due_date=task_data.due_date)
+    
+    db.add(task)
     db.commit()
-    db.refresh(new_task)
+    db.refresh(task)      
+    
+    return {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "status": task.status,
+        "priority": task.priority,
+        "assigned_to": task.assigned_to,
+        "created_by": task.created_by,
+        "due_date": task.due_date,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "previous_status": task.previous_status,
+        "deadline_status": get_deadline_status(task)
+    }
 
-    return new_task
+    # Buradan sonra sende bulunan mevcut Task oluşturma kodu devam eder
 
 @app.get("/tasks", response_model=list[TaskResponse])
 def get_tasks(
     status: TaskStatus | None = None,
     priority: TaskPriority | None = None,
+    search: str | None = None,
+    deadline_status: DeadlineStatus | None = None,
+    due_date_from: datetime | None = None,
+    due_date_to: datetime | None = None,
     skip: int = 0,
     limit: int = 10,
     sort_by: TaskSortBy = TaskSortBy.ID,
@@ -310,6 +376,24 @@ def get_tasks(
         query = query.filter(
             Task.priority == priority
         )
+        
+    if search:
+        search_text = f"%{search}%"
+
+        query = query.filter(
+            (Task.title.ilike(search_text)) |
+            (Task.description.ilike(search_text))
+    )    
+    
+    if due_date_from:
+        query = query.filter(
+        Task.due_date >= due_date_from
+    )
+
+    if due_date_to:
+        query = query.filter(
+            Task.due_date <= due_date_to
+    )
 
     if sort_by == TaskSortBy.ID:
         sort_column = Task.id
@@ -328,14 +412,102 @@ def get_tasks(
     else:
         query = query.order_by(sort_column.desc())
 
-    tasks = (
-        query
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    tasks = query.all()
 
-    return tasks
+    if deadline_status:
+        tasks = [
+            task
+            for task in tasks
+            if get_deadline_status(task) == deadline_status
+        ]
+
+    tasks = tasks[skip:skip + limit]
+
+    return [
+        {
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "status": task.status,
+            "priority": task.priority,
+            "assigned_to": task.assigned_to,
+            "created_by": task.created_by,
+            "due_date": task.due_date,
+            "created_at": task.created_at,
+            "updated_at": task.updated_at,
+            "previous_status": task.previous_status,
+            "deadline_status": get_deadline_status(task)
+        }
+        for task in tasks
+    ]
+    
+@app.get("/tasks/summary", response_model=TaskSummary)
+def get_task_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Task)
+
+    if current_user.role == "USER":
+        query = query.filter(
+            Task.assigned_to == current_user.id
+        )
+
+    tasks = query.all()
+
+    return {
+    "total": len(tasks),
+
+    "todo": sum(
+        task.status == TaskStatus.TODO
+        for task in tasks
+    ),
+
+    "in_progress": sum(
+        task.status == TaskStatus.IN_PROGRESS
+        for task in tasks
+    ),
+
+    "done": sum(
+        task.status == TaskStatus.DONE
+        for task in tasks
+    ),
+
+    "cancelled": sum(
+        task.status == TaskStatus.CANCELLED
+        for task in tasks
+    ),
+
+    "overdue": sum(
+        get_deadline_status(task) == DeadlineStatus.OVERDUE
+        for task in tasks
+    ),
+
+    "upcoming": sum(
+        get_deadline_status(task) == DeadlineStatus.UPCOMING
+        for task in tasks
+    ),
+
+    "no_due_date": sum(
+        get_deadline_status(task) == DeadlineStatus.NO_DUE_DATE
+        for task in tasks
+    ),
+
+    "low_priority": sum(
+        task.priority == TaskPriority.LOW
+        for task in tasks
+    ),
+
+    "medium_priority": sum(
+        task.priority == TaskPriority.MEDIUM
+        for task in tasks
+    ),
+
+    "high_priority": sum(
+        task.priority == TaskPriority.HIGH
+        for task in tasks
+    )
+}
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(
@@ -360,7 +532,20 @@ def get_task(
             detail="Görev bulunamadı."
         )
 
-    return task
+    return {
+    "id": task.id,
+    "title": task.title,
+    "description": task.description,
+    "status": task.status,
+    "priority": task.priority,
+    "assigned_to": task.assigned_to,
+    "created_by": task.created_by,
+    "due_date": task.due_date,
+    "created_at": task.created_at,
+    "updated_at": task.updated_at,
+    "previous_status": task.previous_status,
+    "deadline_status": get_deadline_status(task)
+}
 
 @app.patch("/tasks/{task_id}", response_model=TaskResponse)
 def update_task(
@@ -400,6 +585,63 @@ def update_task(
                     detail="USER sadece görev durumunu değiştirebilir."
                 )
 
+    if "status" in update_data:
+    
+        new_status = update_data["status"]
+
+        if new_status != task.status:
+            old_status = task.status
+
+        allowed_transitions = {
+            TaskStatus.TODO: {
+                TaskStatus.IN_PROGRESS,
+                TaskStatus.CANCELLED
+            },
+
+            TaskStatus.IN_PROGRESS: {
+                TaskStatus.TODO,
+                TaskStatus.DONE,
+                TaskStatus.CANCELLED
+            },
+
+            TaskStatus.DONE: {
+                TaskStatus.IN_PROGRESS
+            },
+
+            TaskStatus.CANCELLED: set()
+        }
+
+        # Görev iptal ediliyorsa mevcut durumunu kaydet
+        if new_status == TaskStatus.CANCELLED:
+
+            if task.status != TaskStatus.CANCELLED:
+                task.previous_status = task.status
+
+        # Görev iptal durumundaysa sadece eski durumuna dönebilir
+        elif task.status == TaskStatus.CANCELLED:
+
+            if new_status != task.previous_status:
+                raise HTTPException(
+                    status_code=400,
+                    detail="İptal edilen görev sadece iptal edilmeden önceki durumuna geri döndürülebilir."
+                )
+
+            task.previous_status = None
+
+        # Normal status geçişleri
+        else:
+
+            current_status = TaskStatus(task.status)
+
+            if new_status not in allowed_transitions[current_status]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"{current_status.value} durumundan "
+                        f"{new_status.value} durumuna geçilemez."
+                    )
+                )
+
     if "assigned_to" in update_data:
         assigned_user = (
             db.query(User)
@@ -422,10 +664,70 @@ def update_task(
     for field, value in update_data.items():
         setattr(task, field, value)
 
+    # Status değiştirildiyse history kaydı oluştur
+    if "status" in update_data:
+        if update_data["status"] != old_status:
+            history = TaskHistory(
+                task_id=task.id,
+                old_status=old_status,
+                new_status=new_status,
+                changed_by=current_user.id
+        )
+
+        db.add(history)
+
     db.commit()
     db.refresh(task)
 
-    return task
+    return {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "status": task.status,
+        "priority": task.priority,
+        "assigned_to": task.assigned_to,
+        "created_by": task.created_by,
+        "due_date": task.due_date,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "previous_status": task.previous_status,
+        "deadline_status": get_deadline_status(task)
+    }
+    
+@app.get(
+    "/tasks/{task_id}/history",
+    response_model=list[TaskHistoryResponse]
+)
+def get_task_history(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Task).filter(
+        Task.id == task_id
+    )
+
+    if current_user.role == "USER":
+        query = query.filter(
+            Task.assigned_to == current_user.id
+        )
+
+    task = query.first()
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Görev bulunamadı."
+        )
+
+    history = (
+        db.query(TaskHistory)
+        .filter(TaskHistory.task_id == task.id)
+        .order_by(TaskHistory.changed_at.asc())
+        .all()
+    )
+
+    return history
 
 @app.delete("/tasks/{task_id}")
 def delete_task(
@@ -433,17 +735,16 @@ def delete_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=403,
-            detail="Sadece ADMIN görev silebilir."
+    query = db.query(Task).filter(
+        Task.id == task_id
+    )
+
+    if current_user.role == "USER":
+        query = query.filter(
+            Task.assigned_to == current_user.id
         )
 
-    task = (
-        db.query(Task)
-        .filter(Task.id == task_id)
-        .first()
-    )
+    task = query.first()
 
     if not task:
         raise HTTPException(

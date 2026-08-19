@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Column,
+    Integer,
     BigInteger,
     Boolean,
     DateTime,
@@ -88,6 +90,11 @@ class Task(Base):
         nullable=False,
         default="TODO"
     )
+    
+    previous_status: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True
+)
 
     priority: Mapped[str] = mapped_column(
         String(20),
@@ -132,4 +139,33 @@ class Task(Base):
     creator: Mapped[User] = relationship(
         foreign_keys=[created_by],
         back_populates="created_tasks"
+    )
+    
+class TaskHistory(Base):
+    __tablename__ = "task_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    task_id = Column(
+        Integer,
+        ForeignKey("tasks.id"),
+        nullable=False
+    )
+
+    old_status = Column(String, nullable=True)
+
+    new_status = Column(
+        String,
+        nullable=False
+    )
+
+    changed_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    changed_at = Column(
+        DateTime,
+        default=datetime.now
     )
