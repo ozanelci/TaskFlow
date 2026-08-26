@@ -1,0 +1,473 @@
+Faz 7’den sonra projeyi sadece backend olarak bırakmayıp gerçek bir uygulamaya dönüştürmeyi planlıyorum. Benim kafamdaki yol haritası şu:
+
+Genel büyük yol haritası
+FAZ 6
+İş kuralları ve gelişmiş backend
+✅ BİTTİ
+
+        ↓
+
+FAZ 7
+Profesyonel backend mimarisi
+📁 Router / Service / Migration / Test
+
+        ↓
+
+FAZ 8
+Frontend
+🖥️ Gerçek kullanıcı arayüzü
+
+        ↓
+
+FAZ 9
+Frontend + Backend entegrasyonu
+🔗 Gerçek TaskFlow uygulaması
+
+        ↓
+
+FAZ 10
+Gelişmiş özellikler
+🔔 Bildirimler / dashboard / kullanıcı deneyimi
+
+        ↓
+
+FAZ 11
+Deployment
+🌍 Uygulamayı internete açma
+
+        ↓
+
+FAZ 12
+Portföy ve profesyonel sonlandırma
+💼 GitHub / README / CV / proje sunumu
+🚀 FAZ 8 — FRONTEND'E GEÇİŞ
+
+Bence Faz 8'in en büyük olayı bu olmalı.
+
+Şu ana kadar hep Swagger üzerinden çalıştık:
+
+POST /tasks
+GET /tasks
+PATCH /tasks/5
+GET /tasks/5/history
+
+Ama gerçek kullanıcı endpoint görmez.
+
+Kullanıcı şöyle bir şey görür:
+
+┌─────────────────────────────────┐
+│           TASKFLOW              │
+├─────────────────────────────────┤
+│                                 │
+│  + Yeni Görev                   │
+│                                 │
+│  [ ] Matematik ödevi            │
+│      HIGH • UPCOMING            │
+│                                 │
+│  [✓] API geliştirme             │
+│      DONE                       │
+│                                 │
+└─────────────────────────────────┘
+Faz 8'de öğrenebileceğimiz şeyler
+
+Ben React ile ilerlemeyi düşünüyorum.
+
+Temelden başlayarak:
+
+1. HTML/CSS mantığı
+
+Önce şunu anlayacaksın:
+
+Frontend nedir?
+Backend'den farkı nedir?
+Browser nasıl çalışır?
+
+Sonra:
+
+HTML
+CSS
+JavaScript
+
+temel mantığını öğreniriz.
+
+Ama aylarca sadece HTML öğretip beklemeyiz. TaskFlow üzerinde öğreniriz.
+
+2. React
+
+Sonra:
+
+Component
+Props
+State
+Event
+useEffect
+
+gibi temel React kavramlarını öğreneceğiz.
+
+Örneğin:
+
+TaskList
+│
+├── TaskCard
+├── TaskCard
+└── TaskCard
+
+Her görevi tekrar tekrar HTML yazmadan component ile oluşturacağız.
+
+3. TaskFlow arayüzünü yapacağız
+
+Sayfalarımız olabilir:
+
+/login
+/register
+/dashboard
+/tasks
+/users
+
+Örneğin login:
+
+Email
+Password
+
+[ Giriş Yap ]
+
+Giriş yapınca:
+
+JWT Token
+↓
+Browser tarafında saklanır
+↓
+API isteklerinde gönderilir
+↓
+Backend kullanıcıyı tanır
+
+Burada şu an backend'de yaptığımız JWT sisteminin frontend tarafında gerçekten nasıl kullanıldığını göreceksin.
+
+🔗 FAZ 9 — FRONTEND VE BACKEND'İ BİRLEŞTİRME
+
+Bence en keyifli fazlardan biri bu olacak.
+
+Artık:
+
+React
+   ↓ HTTP Request
+FastAPI
+   ↓
+SQLAlchemy
+   ↓
+PostgreSQL
+
+tamamen birlikte çalışacak.
+
+Örneğin kullanıcı:
+
+[ + Yeni Görev ]
+
+butonuna basacak.
+
+Frontend:
+
+POST /tasks
+
+gönderecek.
+
+Backend:
+
+Validation
+↓
+Authorization
+↓
+Database
+
+yapacak.
+
+Sonra cevap:
+
+200 / 201
+↓
+Frontend
+↓
+Ekranda yeni görev görünür
+
+Burada API'nin neden var olduğunu çok daha iyi kavrayacaksın.
+
+Şu anda Swagger'da yaptığın:
+
+{
+    "title": "Yeni görev",
+    "priority": "HIGH"
+}
+
+işlemini artık kullanıcı form doldurarak yapacak.
+
+🎨 FAZ 10 — GELİŞMİŞ TASKFLOW ÖZELLİKLERİ
+
+Burada projeyi daha güzel ve gerçekçi hâle getirebiliriz.
+
+Dashboard
+
+Örneğin:
+
+TOPLAM GÖREV
+12
+
+TODO
+4
+
+IN PROGRESS
+3
+
+DONE
+5
+
+Ve deadline bilgileri:
+
+⚠ OVERDUE: 2
+⏰ UPCOMING: 3
+
+Senin Faz 6'da oluşturduğun summary endpointleri burada kullanılacak.
+
+Yani şunu göreceksin:
+
+"Biz bu endpointi boşuna yazmamışız."
+
+Gelişmiş filtreleme arayüzü
+
+Şu anda Swagger'da:
+
+status=TODO
+priority=HIGH
+search=proje
+
+yazıyoruz.
+
+Frontend'de:
+
+[ Search... 🔍 ]
+
+Status:
+[ TODO ▼ ]
+
+Priority:
+[ HIGH ▼ ]
+
+Sort:
+[ Due Date ▼ ]
+
+şeklinde olacak.
+
+Task detay sayfası
+
+Bir göreve tıklayınca:
+
+Başlık
+Açıklama
+Priority
+Due Date
+Assigned User
+
+STATUS HISTORY
+
+TODO
+↓
+IN_PROGRESS
+↓
+DONE
+
+Burada Faz 6'da yaptığımız:
+
+GET /tasks/{task_id}/history
+
+gerçekten kullanılacak.
+
+Kullanıcı yönetim ekranı
+
+ADMIN:
+
+USERS
+
+Ozan       ACTIVE
+Ahmet      ACTIVE
+Mehmet     INACTIVE
+
+[ Deactivate ]
+
+gibi kullanıcı yönetebilecek.
+
+🔔 FAZ 11 — BİLDİRİMLER VE DAHA GERÇEKÇİ ÖZELLİKLER
+
+Burada proje artık daha "uygulama gibi" hissettirmeye başlayacak.
+
+Örneğin:
+
+Deadline yaklaşınca bildirim
+Görevinin bitmesine 2 gün kaldı.
+
+Bunun için arka planda çalışan sistemleri öğrenebiliriz.
+
+Örneğin:
+
+Scheduler
+↓
+Database'deki görevleri kontrol et
+↓
+Deadline yaklaşıyor mu?
+↓
+Bildirim oluştur
+
+Bu aşamada:
+
+background jobs
+scheduled tasks
+notification sistemi
+
+gibi kavramlara girebiliriz.
+
+Activity Log
+
+Sadece status değil:
+
+Görev oluşturuldu
+↓
+Ahmet'e atandı
+↓
+Priority değiştirildi
+↓
+Deadline değiştirildi
+↓
+Status değiştirildi
+
+gibi tam aktivite geçmişi oluşturabiliriz.
+
+Bu, şu anki TaskHistory sisteminin gelişmiş versiyonu olur.
+
+🌍 FAZ 12 — DEPLOYMENT
+
+Bence bunu kesin yapmalıyız.
+
+Çünkü şu anda uygulaman:
+
+http://127.0.0.1:8000
+
+sadece senin bilgisayarında çalışıyor.
+
+Deployment sonrası:
+
+İnternet
+    ↓
+TaskFlow
+    ↓
+Frontend
+    ↓
+Backend API
+    ↓
+Cloud PostgreSQL
+
+olacak.
+
+Burada öğreneceğin şeyler:
+
+environment variables
+production database
+CORS
+frontend deployment
+backend deployment
+domain mantığı
+production vs development
+
+Yani gerçek bir uygulaman olacak.
+
+💼 Son Faz — Portföy ve GitHub
+
+Projeyi bitirdikten sonra sadece:
+
+"Bir proje yaptım."
+
+demeyeceğiz.
+
+GitHub'da profesyonel şekilde sunacağız.
+
+Örneğin README:
+
+# TaskFlow
+
+A full-stack task management application.
+
+Features:
+✓ JWT Authentication
+✓ Role Based Authorization
+✓ Task Management
+✓ Advanced Filtering
+✓ Search
+✓ Pagination
+✓ Task History
+✓ Deadline Tracking
+✓ React Frontend
+✓ PostgreSQL
+✓ FastAPI
+
+Sonra mimari diyagram:
+
+React
+  ↓
+FastAPI
+  ↓
+SQLAlchemy
+  ↓
+PostgreSQL
+
+Ve proje yapısı:
+
+TaskFlow/
+├── backend/
+├── frontend/
+├── tests/
+└── README.md
+Benim önerdiğim nihai hedef
+
+TaskFlow'u şu seviyeye getirmek:
+
+┌───────────────────────────────┐
+│           REACT               │
+│                               │
+│ Login                         │
+│ Dashboard                     │
+│ Task Management               │
+│ Search / Filter               │
+│ Task History                  │
+└───────────────┬───────────────┘
+                │
+             HTTP / JWT
+                │
+┌───────────────▼───────────────┐
+│           FASTAPI             │
+│                               │
+│ Authentication                │
+│ Authorization                 │
+│ Business Logic                │
+│ Validation                    │
+│ Routers                       │
+│ Services                      │
+└───────────────┬───────────────┘
+                │
+             SQLAlchemy
+                │
+┌───────────────▼───────────────┐
+│         POSTGRESQL            │
+│                               │
+│ Users                         │
+│ Tasks                         │
+│ Task History                  │
+│ Notifications                 │
+└───────────────────────────────┘
+Kısaca benim kafamdaki plan
+Faz	Ana hedef
+7	Backend'i profesyonel mimariye taşımak
+8	React ve frontend öğrenmek
+9	Frontend + backend'i birleştirmek
+10	Dashboard ve gelişmiş kullanıcı özellikleri
+11	Bildirimler ve gelişmiş sistem özellikleri
+12	Deployment ve projeyi internete açmak
+13 / Final	GitHub, README, portföy ve proje sunumu
+
+Bence bu yolun sonunda elinde sadece ders için yapılmış bir API değil, frontend'i, backend'i, veritabanı, authentication sistemi, testleri ve canlı deployment'ı olan gerçek bir full-stack proje olacak.

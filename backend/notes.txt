@@ -1,0 +1,2 @@
+schema veri biçimini/tipini kontrol eder.
+

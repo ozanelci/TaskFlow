@@ -1,5 +1,5 @@
 from pwdlib import PasswordHash
-
+from config import settings
 
 password_hash = PasswordHash.recommended()
 
@@ -29,7 +29,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 from datetime import datetime, timedelta, timezone
 from jose import jwt
 
-SECRET_KEY = "taskflow-super-secret-key"
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
@@ -45,7 +45,7 @@ def create_access_token(data: dict) -> str:
 
     return jwt.encode(
         to_encode,
-        SECRET_KEY,
+        settings.SECRET_KEY,
         algorithm=ALGORITHM
     )
     
@@ -53,7 +53,7 @@ def decode_access_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
+            settings.SECRET_KEY,
             algorithms=[ALGORITHM]
         )
         return payload

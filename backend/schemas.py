@@ -21,7 +21,6 @@ class TaskSortBy(str, Enum):
     PRIORITY = "priority"
     DUE_DATE = "due_date"
 
-
 class TaskSortOrder(str, Enum):
     ASC = "asc"
     DESC = "desc"
@@ -31,7 +30,6 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: str
-
 
 class UserResponse(BaseModel):
     id: int
@@ -44,13 +42,11 @@ class UserResponse(BaseModel):
         "from_attributes": True
     }
 
-
 class UserUpdate(BaseModel):
     full_name: str | None = None
     email: EmailStr | None = None
     role: str | None = None
     is_active: bool | None = None
-
 
 class TaskCreate(BaseModel):
     title: str
@@ -65,7 +61,6 @@ class DeadlineStatus(str, Enum):
     NORMAL = "NORMAL"
     OVERDUE = "OVERDUE"
     UPCOMING = "UPCOMING"
-
 
 class TaskResponse(BaseModel):
     id: int
@@ -110,8 +105,6 @@ class TaskSummary(BaseModel):
     medium_priority: int
     high_priority: int
 
-
-
 class TaskUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
@@ -123,7 +116,6 @@ class TaskUpdate(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-
 
 class TokenResponse(BaseModel):
     access_token: str
