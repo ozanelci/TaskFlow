@@ -134,7 +134,7 @@ def delete_user(
     return {
         "message": "Kullanıcı pasif hale getirildi."
     }
-
+    
 
 def login(
     db: Session,
@@ -169,3 +169,31 @@ def login(
         "access_token": access_token,
         "token_type": "bearer",
     }
+    
+def register_user(
+    db: Session,
+    user_data: UserCreate,
+):
+    existing_user = (
+        db.query(User)
+        .filter(User.email == user_data.email)
+        .first()
+    )
+
+    if existing_user:
+        raise UserAlreadyExists()
+
+    hashed_password = hash_password(user_data.password)
+
+    new_user = User(
+        full_name=user_data.full_name,
+        email=user_data.email,
+        password_hash=hashed_password,
+        role="USER",
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user

@@ -44,6 +44,11 @@ class User(Base):
         nullable=False
     )
 
+    role: Mapped[str] = mapped_column(
+    String(20),
+    nullable=False
+)
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -65,6 +70,69 @@ class User(Base):
         foreign_keys="Task.created_by",
         back_populates="creator"
     )
+    
+class Room(Base):
+    __tablename__ = "rooms"
+
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False
+    )
+
+    join_code: Mapped[str] = mapped_column(
+        String(20),
+        unique=True,
+        nullable=False
+    )
+
+    created_by: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP")
+    )
+
+class RoomMembership(Base):
+    __tablename__ = "room_memberships"
+
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True
+    )
+
+    room_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("rooms.id"),
+        nullable=False
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="PENDING"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP")
+    )    
 
 
 class Task(Base):
@@ -90,11 +158,11 @@ class Task(Base):
         nullable=False,
         default="TODO"
     )
-    
+
     previous_status: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True
-)
+    )
 
     priority: Mapped[str] = mapped_column(
         String(20),
@@ -113,6 +181,12 @@ class Task(Base):
         ForeignKey("users.id"),
         nullable=False
     )
+    
+    room_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("rooms.id"),
+        nullable=True
+)
 
     due_date: Mapped[datetime | None] = mapped_column(
         DateTime,
@@ -140,7 +214,8 @@ class Task(Base):
         foreign_keys=[created_by],
         back_populates="created_tasks"
     )
-    
+
+
 class TaskHistory(Base):
     __tablename__ = "task_history"
 
@@ -166,6 +241,65 @@ class TaskHistory(Base):
     )
 
     changed_at = Column(
+        DateTime,
+        default=datetime.now
+    )
+
+
+class TaskRequest(Base):
+    __tablename__ = "task_requests"
+    
+    room_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("rooms.id"),
+        nullable=True,
+)
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    title = Column(String, nullable=False)
+
+    description = Column(String, nullable=True)
+
+    priority = Column(
+        String,
+        nullable=False
+    )
+
+    due_date = Column(
+        DateTime,
+        nullable=True
+    )
+
+    requested_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    status = Column(
+        String,
+        nullable=False,
+        default="PENDING"
+    )
+
+    reviewed_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    reviewed_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    review_comment = Column(
+        String,
+        nullable=True
+    )
+
+    created_at = Column(
         DateTime,
         default=datetime.now
     )

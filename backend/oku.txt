@@ -1,5 +1,5 @@
-reload:
-python -m uvicorn main:app --reload
+reload: 
+uvicorn main:app --reload
 
 for user 5
 {
@@ -12,8 +12,22 @@ for admin 8
   "password": "Test123!"
 }
 
+TASKOZZ
+ozanelci@test.com
+Test123!
+admin test
+id=11
+
+JO7N0TIZ
+
+172.31.32.1
+
+{
+  "full_name": "usertestci",
+  "email": "login@test.com",
+  "password": "Test123!",
+  "role": "USER"
+}
 
 
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4Iiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzg3MTI3MDk3fQ.lQ6ywp5JvjKJlOANePudcZt3EU9koBAUSHtLYEMzwl4
-
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4Iiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzg3MTI5NDI1fQ.8wwsUfzPMs3bVD-it_KnO8dIlaX87GONsi56SkrLMA4
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMSIsInJvbGUiOiJBRE1JTiIsImV4cCI6MTc4ODUxMjAxMX0.zAazf1gvXG7gpPffrOl4nP6N5wJkbWMxSAdwLLvFcrs

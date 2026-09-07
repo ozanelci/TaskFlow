@@ -1,0 +1,722 @@
+Evet. Bundan sonra **bunu Taskozz'un çalışma anayasası olarak kullanacağız.** Yeni özellik eklerken, bir şeyi “tamamlandı” sayarken veya başka bir yöne saparken bu haritaya göre kontrol edeceğiz.
+
+Aşağıdaki metni istersen ayrıca ayrı bir dosyada da saklayabilirsin.
+
+# TASKOZZ V1 — MASTER GELİŞTİRME HARİTASI
+
+> **Amaç:** Mevcut çalışan sistemi bozmadan, Taskozz V1'i eksiksiz tamamlamak.
+> **Kural:** Bu haritada olmayan yeni özellikler V1'e eklenmeyecek.
+> **Tasarım kuralı:** Görsel kararların sahibi kullanıcıdır. Kullanıcı istemeden tasarım değiştirilmeyecek.
+
+---
+
+# 0. MEVCUT DURUM
+
+Aşağıdakiler **zaten yapılmış ve korunacak**:
+
+### Backend
+
+* Python
+* FastAPI
+* SQLAlchemy
+* PostgreSQL
+* JWT
+* Argon2 password hashing
+* REST API
+* Router / Service katmanı
+* User
+* Task
+* TaskHistory
+* TaskRequest
+* Room
+* RoomMembership
+* ADMIN / USER authorization
+* Task CRUD
+* Search
+* Filter
+* Sort
+* Pagination
+* Priority
+* Deadline
+* History
+* Task Request
+* Room/membership sistemi
+
+### Frontend
+
+* React
+* JSX
+* JavaScript
+* Vite
+* Login
+* Dashboard
+* Tasks
+* Task Detail
+* Task History
+* Task Requests
+* Rooms
+* Navigation
+* Responsive düzen
+
+### Çalışan kritik akış
+
+```text
+Kurumsal USER
+      ↓
+Task Request
+      ↓
+ADMIN
+      ↓
+Approve
+      ↓
+Task
+      ↓
+USER
+```
+
+Bu akış **korunacak**, gereksiz yere yeniden yazılmayacak.
+
+---
+
+# 1. REGISTER
+
+## Hedef
+
+```text
+/register
+    ↓
+Public Registration
+    ↓
+USER
+    ↓
+Login
+    ↓
+Dashboard
+```
+
+### Yapılacak
+
+* `/register` frontend
+* Public register backend endpoint
+* Kullanıcı oluşturma
+* Password hashing
+* Public register'dan oluşturulan kullanıcı = `USER`
+* Kullanıcı kendisini `ADMIN` yapamaz
+* Register sonrası Login
+* Login sonrası Dashboard
+
+### Kesin sınır
+
+```text
+Public Register
+      ↓
+     USER
+```
+
+**Public Register → ADMIN YOK.**
+
+Kurumsal ADMIN hesabı ayrı kurumsal başlangıç/kurulum mantığıyla oluşturulur.
+
+Master dokümanda public register'ın USER oluşturması ve ADMIN'in public olarak seçilememesi açıkça belirtiliyor. 
+
+---
+
+# 2. KİŞİSEL / KURUMSAL HESAP AYRIMI ⭐
+
+## V1'in en kritik kalan işi
+
+Hedef veri modeli:
+
+```text
+                    KİŞİ
+                      │
+             ┌────────┴────────┐
+             ↓                 ↓
+       BİREYSEL HESAP     KURUMSAL HESAP
+             ↓                 ↓
+           USER           ADMIN / USER
+             ↓                 ↓
+     Kişisel Tasks       Kurumsal Tasks
+```
+
+Aynı kişi:
+
+```text
+Ahmet
+ ├── Bireysel USER hesabı
+ └── Kurumsal USER hesabı
+```
+
+kullanabilir.
+
+### Kesin kural
+
+```text
+Bireysel Task
+      X
+Kurumsal Task
+```
+
+birbirine karışmayacak.
+
+Örneğin:
+
+```text
+Bireysel:
+- İngilizce çalış
+- Fatura öde
+- Spor yap
+```
+
+kurumsal ADMIN'in dashboardunda **görünmeyecek**.
+
+### Teknik kural
+
+Bu ayrım:
+
+❌ sadece frontend dropdown'u olmayacak.
+
+Gerçek:
+
+* database
+* model
+* migration
+* authentication/account bağlamı
+* task sorguları
+* authorization
+
+üzerinde uygulanacak.
+
+Master dokümanda kişisel ve kurumsal kullanımın birbirinden ayrılması kesin karar olarak belirtiliyor. 
+
+---
+
+# 3. BİREYSEL USER → DİREKT TASK
+
+Bireysel hesap:
+
+```text
+USER
+ ↓
+New Task
+ ↓
+Task
+```
+
+doğrudan görev oluşturabilir.
+
+Desteklenecek:
+
+* Create
+* Update
+* Complete
+* Delete
+* Search
+* Filter
+* Sort
+* Pagination
+* Deadline
+* Priority
+* History
+* Dashboard
+
+Master doküman kişisel USER'ın doğrudan kendi görevlerini oluşturabileceğini açıkça tanımlıyor. 
+
+---
+
+# 4. KURUMSAL USER → TASK REQUEST
+
+Bu mevcut çalışan sistemdir ve **bozulmayacak**.
+
+```text
+Kurumsal USER
+      ↓
+Task Request
+      ↓
+PENDING
+      ↓
+ADMIN
+   ┌──┴──┐
+   ↓     ↓
+APPROVE REJECT
+   ↓     ↓
+ TASK  REJECTED
+```
+
+Approve:
+
+```text
+requested_by = USER
+created_by   = ADMIN
+assigned_to  = USER
+```
+
+Reject durumunda:
+
+```text
+review_comment
+```
+
+tutulabilir.
+
+Bu V1 kapsamındadır. 
+
+---
+
+# 5. PROFILE
+
+Yeni ama basit özellik.
+
+```text
+Profile
+ ├── Full Name
+ ├── Email
+ └── İzin verilen kullanıcı bilgileri
+```
+
+### Kural
+
+Mevcut:
+
+```text
+Login
+JWT
+get_current_user()
+Authorization
+```
+
+sistemi **bozulmayacak**.
+
+Profile bunun üzerine eklenecek.
+
+---
+
+# 6. DASHBOARD — PROGRESSIVE DISCLOSURE
+
+Mevcut dashboard **atılmayacak**.
+
+Ana prensip:
+
+```text
+ÖZET
+  ↓
+TIKLA
+  ↓
+DETAY
+  ↓
+TASK DETAIL
+```
+
+Örneğin:
+
+```text
+12 Devam Eden
+```
+
+↓
+
+```text
+12 görev
+Priority dağılımı
+Deadline bilgileri
+```
+
+↓
+
+```text
+Task Detail
+```
+
+↓
+
+```text
+Description
+Priority
+Deadline
+Status
+Assigned person
+History
+```
+
+### Kesin sınır
+
+Ana dashboard:
+
+* sade
+* anlaşılır
+* özet odaklı
+
+olacak.
+
+Devasa:
+
+* grafikler
+* analytics
+* KPI bombardımanı
+* gereksiz metrikler
+
+**yok.**
+
+Bu Progressive Disclosure yaklaşımı master dokümanın temel UX kararlarından biri. 
+
+---
+
+# 7. USER TASK DELETE
+
+Master V1 listesine göre USER da görev silebilecek.
+
+Hedef:
+
+```text
+USER
+ ↓
+Kendi Task
+ ↓
+DELETE
+```
+
+Ama:
+
+```text
+USER
+ ↓
+Başkasının Task
+ ↓
+DELETE
+ ↓
+403 / Forbidden
+```
+
+Yetki frontend'de değil, **backend'de** kontrol edilecek.
+
+Master V1 özellik listesinde USER için Task Delete açıkça yer alıyor. 
+
+---
+
+# 8. TASKOZZ İSİM TEMİZLİĞİ
+
+Kullanıcıya görünen ürün adı:
+
+# TASKOZZ
+
+olacak.
+
+Değiştirilecek:
+
+```text
+TaskFlow
+```
+
+→
+
+```text
+Taskozz
+```
+
+### Ama:
+
+Körlemesine:
+
+```text
+repository
+commit history
+teknik geçmiş
+```
+
+değiştirilmeyecek.
+
+Sadece **ürün adı / kullanıcıya görünen metinler** temizlenecek.
+
+---
+
+# 9. UI / TASARIM
+
+Burada **yeni tasarım icat edilmeyecek.**
+
+Mevcut çalışan UI korunacak.
+
+Sadece:
+
+* yeni Register
+* Profile
+* Account ayrımı
+* Progressive Disclosure
+
+gibi fonksiyonların mevcut tasarıma **uyumlu şekilde eklenmesi** sağlanacak.
+
+### Yasak
+
+Kullanıcı onayı olmadan:
+
+* renk değiştirme
+* font değiştirme
+* layout değiştirme
+* sidebar değiştirme
+* card tasarımı değiştirme
+* button tasarımı değiştirme
+* spacing değiştirme
+* animation ekleme
+* “daha güzel oldu” diye UI yenileme
+
+**yok.**
+
+Bu hard constraint master dokümanda açıkça kayıtlı. 
+
+---
+
+# 10. FINAL ENTEGRASYON
+
+Yukarıdaki 1–9 tamamlandıktan sonra bütün sistem birlikte kontrol edilecek.
+
+## Bireysel
+
+```text
+Register
+ ↓
+Login
+ ↓
+Dashboard
+ ↓
+New Task
+ ↓
+Task
+ ↓
+Update
+ ↓
+Complete
+ ↓
+Delete
+ ↓
+History
+```
+
+## Kurumsal
+
+```text
+ADMIN
+ ↓
+Room
+ ↓
+USER
+ ↓
+Task
+ ↓
+USER
+```
+
+## Task Request
+
+```text
+USER
+ ↓
+Task Request
+ ↓
+ADMIN
+ ↓
+Approve
+ ↓
+Task
+```
+
+## Ayrım
+
+```text
+Bireysel Task
+      │
+      X
+      │
+Kurumsal Task
+```
+
+---
+
+# 11. RESPONSIVE FINAL
+
+Zaten yaptığımız responsive çalışmalar korunacak.
+
+Son kontrolde:
+
+* Desktop
+* Tablet/uygun ekranlar
+* Mobile
+* Navigation
+* Dashboard
+* Tasks
+* Task Detail
+* Rooms
+* Task Requests
+* Register
+* Profile
+
+kontrol edilecek.
+
+**Yeni görsel tasarım yapılmayacak.**
+
+---
+
+# 12. CODE CLEANUP
+
+Final aşamada:
+
+```text
+account_type
+created_by / requested_by
+TaskFlow / Taskozz
+duplicate code
+ESLint
+SQLAlchemy warnings
+unused code
+```
+
+gibi kalıntılar taranacak.
+
+Ama mevcut doğru `created_by` alanları **silinmeyecek**.
+
+Örneğin:
+
+```text
+Task.created_by
+Room.created_by
+```
+
+doğru kullanımlardır.
+
+---
+
+# 13. README + GITHUB
+
+V1'in son teknik teslimatı:
+
+```text
+README
+ ↓
+Project description
+ ↓
+Architecture
+ ↓
+Technologies
+ ↓
+Installation
+ ↓
+Environment variables
+ ↓
+Backend
+ ↓
+Frontend
+ ↓
+Database
+```
+
+GitHub repository güncellenecek.
+
+---
+
+# 14. DEPLOYMENT
+
+Son aşamada Taskozz'u mümkün olduğunca gerçek çalışan ürün haline getirmek için:
+
+```text
+Frontend
++
+Backend
++
+Database
+```
+
+deployment planlanacak.
+
+Deployment yöntemi, o aşamada teknik gereksinimlere göre seçilecek.
+
+**Şu anda deployment yüzünden geliştirmeyi bölmeyeceğiz.**
+
+---
+
+# 🚫 V1 DIŞI — BUNLARA SAPMAYACAĞIZ
+
+Bunlar **özellikle yapılmayacak**:
+
+```text
+❌ Notification
+❌ Email notification
+❌ Push notification
+❌ Background scheduler
+❌ Sürekli deadline monitoring
+❌ Devasa analytics
+❌ 10 farklı grafik sistemi
+❌ Devasa admin panel
+❌ Karmaşık permission sistemi
+❌ Microservice
+❌ Gereksiz component karmaşası
+❌ Yüzlerce test
+❌ USER → USER Task Transfer
+```
+
+Bunlar master planda açıkça V1 dışında tutulmuş. 
+
+---
+
+# 🗺️ SON GELİŞTİRME SIRAMIZ
+
+Bundan sonra **sadece şu sırayı takip ediyoruz:**
+
+```text
+MEVCUT ÇALIŞAN SİSTEM
+        ↓
+1. REGISTER
+        ↓
+2. KİŞİSEL / KURUMSAL HESAP AYRIMI
+        ↓
+3. BİREYSEL USER → DIRECT TASK
+        ↓
+4. PROFILE
+        ↓
+5. DASHBOARD → PROGRESSIVE DISCLOSURE
+        ↓
+6. USER → TASK DELETE
+        ↓
+7. TASKOZZ İSİM TEMİZLİĞİ
+        ↓
+8. MEVCUT UI'A UYUMLAMA
+        ↓
+9. FINAL ENTEGRASYON
+        ↓
+10. RESPONSIVE SON KONTROL
+        ↓
+11. CODE CLEANUP
+        ↓
+12. README + GITHUB
+        ↓
+13. DEPLOYMENT
+        ↓
+14. FINAL V1 TEST
+        ↓
+🎯 TASKOZZ V1 TAMAMLANDI
+```
+
+## ⏱️ Tahmini kalan süre
+
+Mevcut kodu göz önünde bulundurarak:
+
+**Yaklaşık 4–6 iş günü.**
+
+Hedefimiz:
+
+### **5 iş gününde bitirmek.**
+
+---
+
+## 🔒 EN ÖNEMLİ KURAL
+
+Bundan sonra bir özellik/iş önerisi geldiğinde önce şu soruyu soracağız:
+
+> **“Bu Taskozz V1 Master Haritasında var mı?”**
+
+**Varsa → yap.**
+
+**Yoksa → V1'e ekleme.**
+
+**Mevcut çalışan bir şeyi yeniden yazmak gerekmiyorsa → yeniden yazma.**
+
+**Görsel karar kullanıcı tarafından verilmediyse → görsel karar verme.**
+
+Bu şekilde artık **farklı yerlere sapmadan**, elimizdeki çalışan sistemi tamamlayıp V1'i kapatacağız.

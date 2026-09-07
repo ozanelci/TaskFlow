@@ -30,6 +30,10 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: str
+    
+class UserRole(str, Enum):
+    USER = "USER"
+    ADMIN = "ADMIN"
 
 class UserResponse(BaseModel):
     id: int
@@ -38,9 +42,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
 class UserUpdate(BaseModel):
     full_name: str | None = None
@@ -53,6 +55,7 @@ class TaskCreate(BaseModel):
     description: str | None = None
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM
+    room_id: int | None = None
     assigned_to: int
     due_date: datetime | None = None
     
@@ -70,6 +73,7 @@ class TaskResponse(BaseModel):
     priority: str
     assigned_to: int
     created_by: int
+    room_id: int | None
     due_date: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -79,6 +83,12 @@ class TaskResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+    
+class TaskListResponse(BaseModel):
+    items: list[TaskResponse]
+    total: int
+    skip: int
+    limit: int    
     
 class TaskHistoryResponse(BaseModel):
     id: int
@@ -92,18 +102,30 @@ class TaskHistoryResponse(BaseModel):
         "from_attributes": True
     }
     
-class TaskSummary(BaseModel):
-    total: int
-    todo: int
-    in_progress: int
-    done: int
-    cancelled: int
-    overdue: int
-    upcoming: int
-    no_due_date: int
-    low_priority: int
-    medium_priority: int
-    high_priority: int
+class TaskRequestCreate(BaseModel):
+    title: str
+    description: str | None = None
+    priority: TaskPriority = TaskPriority.MEDIUM
+    room_id: int | None = None
+    due_date: datetime | None = None
+
+
+class TaskRequestResponse(BaseModel):
+    id: int
+    title: str
+    description: str | None
+    priority: str
+    status: str
+    requested_by: int
+    room_id: int | None
+    room_name: str | None = None
+    full_name: str | None = None
+    email: EmailStr | None = None
+    reviewed_by: int | None
+    reviewed_at: datetime | None
+    review_comment: str | None
+    due_date: datetime | None
+    created_at: datetime
 
 class TaskUpdate(BaseModel):
     title: str | None = None
@@ -112,6 +134,60 @@ class TaskUpdate(BaseModel):
     priority: TaskPriority | None = None
     assigned_to: int | None = None
     due_date: datetime | None = None
+    
+class RoomCreate(BaseModel):
+    name: str
+
+
+class RoomResponse(BaseModel):
+    id: int
+    name: str
+    join_code: str
+    created_by: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RoomJoinRequest(BaseModel):
+    join_code: str
+
+
+class RoomMembershipResponse(BaseModel):
+    id: int
+    room_id: int
+    user_id: int
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}    
+    
+class RoomMemberResponse(BaseModel):
+    id: int
+    room_id: int
+    user_id: int
+    full_name: str
+    email: EmailStr
+    status: str
+    created_at: datetime
+class RoomRequestResponse(BaseModel):
+    id: int
+    room_id: int
+    user_id: int
+    full_name: str
+    email: EmailStr
+    status: str
+    created_at: datetime    
+    
+class MyRoomResponse(BaseModel):
+    id: int
+    name: str
+    join_code: str
+    created_by: int
+    membership_status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}    
     
 class LoginRequest(BaseModel):
     email: EmailStr

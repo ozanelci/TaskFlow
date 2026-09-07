@@ -1,0 +1,2510 @@
+# TASKFLOW — FAZ 8 FRONTEND + REACT
+
+## MASTER PLAN / KAYBOLMA DURUMUNDA ANA REFERANS DOKÜMANI
+
+> **Bu belge, Faz 8'e geçerken üzerinde anlaştığımız bütün fonksiyonel, teknik, UX ve tasarım kararlarını tek yerde toplamak için hazırlanmıştır.**
+>
+> Sohbet geçmişi kaybolursa bu belgeyi yeniden gönderdiğinde, TaskFlow'un Faz 8 kapsamını, nedenlerini, kullanıcı rollerini, kurumsal senaryoyu, kişisel kullanım senaryosunu ve tasarım prensiplerini buradan yeniden kurabiliriz.
+>
+> **ÖNEMLİ:** Görsel tasarımla ilgili nihai kararların sahibi kullanıcıdır. Aşağıdaki tasarım bölümü "uygulanacak kesin tasarım" değil, şimdiye kadar belirlenmiş **tasarım prensipleri ve referanslar**dır. Kullanıcı onaylamadan hiçbir görsel karar uygulanmayacaktır.
+
+---
+
+# 0. PROJENİN GENEL VİZYONU
+
+## Proje adı
+
+**Taskozz**
+
+## V1'in amacı
+
+TaskFlow; hem **kişisel görev yönetimi** hem de **kurumsal birim içi görev yönetimi** için kullanılabilecek, web tabanlı, gerçek bir full-stack uygulamadır.
+
+Kurumsal senaryo:
+
+> Bir kurumun/birimin şefi, personellere görev verebilir, görevlerin durumunu takip edebilir ve birimin genel iş durumunu görebilir.
+
+Staj defterindeki anlatım:
+
+> **TaskFlow, kurumsal birimlerde yönetici ve personel arasındaki görev dağılımını, görev takibini ve görev durumlarının izlenmesini sağlayan web tabanlı görev yönetim sistemidir.**
+
+Örneğin:
+
+```text
+BURULAŞ
+└── X Birimi
+    └── Şef
+        ├── Personel
+        ├── Personel
+        └── Personel
+```
+
+Ancak TaskFlow **BURULAŞ'a hard-code edilmiş bir uygulama değildir.**
+
+Aynı uygulama kişisel kullanım için de çalışabilir.
+
+---
+
+# 1. TASKFLOW'UN İKİ KULLANIM MODU
+
+## A. Kişisel kullanım
+
+Kişi TaskFlow'u kendi görevlerini yönetmek için kullanabilir.
+
+```text
+TaskFlow
+└── Kişisel Kullanıcı
+    ├── Task
+    ├── Task
+    ├── Task
+    └── Task
+```
+
+Bu hesapta:
+
+* kendi görevini oluşturabilir
+* deadline belirleyebilir
+* priority belirleyebilir
+* status değiştirebilir
+* görevlerini arayabilir
+* filtreleyebilir
+* sıralayabilir
+* pagination kullanabilir
+* history görebilir
+* dashboard kullanabilir
+
+**Burada ADMIN/ŞEF yoktur ve gerekmez.**
+
+---
+
+## B. Kurumsal kullanım
+
+Örneğin:
+
+```text
+BURULAŞ
+└── X Birimi
+    └── ADMIN / ŞEF
+        ├── USER / PERSONEL
+        ├── USER / PERSONEL
+        └── USER / PERSONEL
+```
+
+Buradaki teknik roller:
+
+```text
+ADMIN = Şef / Birim yöneticisi
+USER  = Personel
+```
+
+### Önemli:
+
+Ayrı:
+
+```text
+CHIEF
+MANAGER
+COACH
+EMPLOYEE
+```
+
+rolleri **V1'de oluşturulmayacak.**
+
+İki temel role sahip olmak bilinçli bir sadeleştirmedir.
+
+---
+
+# 2. KURUMSAL VE KİŞİSEL HESAP AYRIMI
+
+Bu ayrım kesin.
+
+Bir personelin:
+
+### Kurumsal hesabı
+
+```text
+Ahmet Yılmaz
+BURULAŞ X Birimi
+USER
+```
+
+ile:
+
+### Kişisel hesabı
+
+```text
+Ahmet Yılmaz
+Kişisel TaskFlow
+USER
+```
+
+aynı şey değildir.
+
+Kişisel görevler kurumsal görev sistemine karışmaz.
+
+Örneğin personelin kişisel hesabındaki:
+
+```text
+Spor salonuna git
+Faturayı öde
+İngilizce çalış
+```
+
+gibi görevler şefin kurumsal dashboard'unda **asla görünmez**.
+
+Aynı şekilde şef bunları yönetemez.
+
+---
+
+# 3. ROLLER
+
+## ADMIN / ŞEF
+
+Kurumsal kullanımda yöneticidir.
+
+Temel amacı:
+
+> **"Birimimdeki işler ne durumda?"**
+
+ADMIN:
+
+* personelleri görebilir
+* personel oluşturabilir
+* personel yönetebilir
+* görev oluşturabilir
+* görev atayabilir
+* görevleri takip edebilir
+* dashboard üzerinden genel durumu görebilir
+* personellerin görevlerini inceleyebilir
+* görev taleplerini inceleyebilir
+* görev taleplerini kabul/reddedebilir
+
+---
+
+## USER / PERSONEL
+
+Temel amacı:
+
+> **"Benim yapmam gereken işler neler?"**
+
+Kurumsal USER:
+
+* login olur
+* kendi profilini görür
+* kendi profilindeki izin verilen bilgileri günceller
+* kendisine atanmış görevleri görür
+* görevlerini günceller
+* görevleri tamamlar
+* search/filter/sort/pagination kullanır
+* deadline/priority görür
+* task history görür
+* kendi dashboard'unu görür
+* yeni bir iş/görev talebinde bulunabilir
+
+### Kritik karar:
+
+Kurumsal USER, **kendi kafasına göre doğrudan kurumsal Task oluşturmaz.**
+
+Bunun yerine:
+
+```text
+USER
+ ↓
+Görev Talebi
+ ↓
+ADMIN / ŞEF
+ ↓
+Kabul
+ ↓
+Gerçek Task
+```
+
+---
+
+# 4. GÖREV OLUŞTURMA MODELLERİ
+
+## 4.1 Şef → Personel
+
+Şef doğrudan görev verebilir.
+
+```text
+ADMIN / ŞEF
+      ↓
+Yeni görev
+      ↓
+Personel seç
+      ↓
+TASK
+      ↓
+USER
+```
+
+Burada onay gerekmez.
+
+Çünkü görevi veren yetkili kişidir.
+
+---
+
+## 4.2 Kurumsal Personel → Görev Talebi
+
+Personel kendisinin yapılması gerektiğini düşündüğü bir iş için:
+
+```text
+USER
+ ↓
+Yeni Görev Talebi
+ ↓
+PENDING
+ ↓
+ADMIN
+```
+
+Şef:
+
+```text
+Kabul
+ ↓
+TASK
+```
+
+veya:
+
+```text
+Reddet
+ ↓
+REJECTED
+```
+
+yapar.
+
+---
+
+# 5. TASK REQUEST — GÖREV TALEBİ
+
+V1'e dahil edilecek.
+
+## Önerilen veri modeli
+
+```text
+TaskRequest
+├── id
+├── title
+├── description
+├── priority
+├── due_date
+├── requested_by
+├── status
+├── reviewed_by
+├── reviewed_at
+├── review_comment
+└── created_at
+```
+
+### Status
+
+```text
+PENDING
+APPROVED
+REJECTED
+```
+
+---
+
+## `requested_by`
+
+Talebi oluşturan personeldir.
+
+Örneğin:
+
+```text
+requested_by = Ahmet
+```
+
+---
+
+## `reviewed_by`
+
+Talebi değerlendiren şeftir.
+
+Bunun amacı:
+
+> "Bu talebi kim onayladı/reddetti?"
+
+sorusunun cevaplanabilmesidir.
+
+---
+
+## `reviewed_at`
+
+Kararın verildiği zamanı tutar.
+
+---
+
+## `review_comment`
+
+Özellikle red durumunda şefin açıklama yazabilmesini sağlar.
+
+Örneğin:
+
+> "Bu görev mevcut plan içerisinde bulunuyor."
+
+---
+
+# 6. TASK REQUEST → TASK DÖNÜŞÜMÜ
+
+Personel:
+
+```text
+title:
+Araç bakım raporunu hazırla
+
+priority:
+HIGH
+
+due_date:
+30 Ağustos
+```
+
+talep eder.
+
+Database:
+
+```text
+TaskRequest
+status = PENDING
+requested_by = Ahmet
+```
+
+Şef kabul ederse:
+
+```text
+TaskRequest
+status = APPROVED
+reviewed_by = Şef
+reviewed_at = ...
+```
+
+ve gerçek Task oluşturulur:
+
+```text
+Task
+title = ...
+description = ...
+priority = HIGH
+due_date = ...
+assigned_to = Ahmet
+created_by = Şef
+```
+
+### Önemli mantık
+
+Talebi yapan:
+
+```text
+requested_by = Ahmet
+```
+
+Görevi resmileştiren:
+
+```text
+created_by = Şef
+```
+
+Görevi yapacak:
+
+```text
+assigned_to = Ahmet
+```
+
+Bu ayrım bilinçli.
+
+---
+
+# 7. USER → USER GÖREV DEVRİ
+
+## V1'DE YOK ❌
+
+Şimdilik:
+
+```text
+Ahmet
+ ↓
+Mehmet'e görev devri
+ ↓
+Mehmet kabulü
+ ↓
+ADMIN onayı
+```
+
+sistemini yapmıyoruz.
+
+Çünkü bunun için ayrıca:
+
+```text
+TaskTransferRequest
+```
+
+gibi bir model, migration, service, endpoint, authorization, test ve frontend workflow'u gerekir.
+
+Bu özellik ileride V1.1/V2'de eklenebilir.
+
+---
+
+# 8. TASK SİSTEMİNİN V1 KAPSAMI
+
+Task temel olarak:
+
+```text
+Task
+├── title
+├── description
+├── status
+├── priority
+├── deadline
+├── assigned_to
+├── created_by
+└── history
+```
+
+mantığındadır.
+
+Desteklenecek ana özellikler:
+
+* Task oluşturma
+* Task listeleme
+* Task güncelleme
+* Task silme
+* Task atama
+* Search
+* Filtering
+* Pagination
+* Sorting
+* Priority
+* Deadline
+* Task History
+* Dashboard summary
+
+---
+
+# 9. TASK STATUS
+
+Mevcut sistemdeki status yapısı korunacak.
+
+Örneğin:
+
+```text
+TODO
+IN_PROGRESS
+DONE
+```
+
+Frontend bunları backend'deki gerçek değerlerle kullanacak.
+
+---
+
+# 10. TASK PRIORITY
+
+Priority mevcut backend'deki yapıyla kullanılacak.
+
+Frontend'de priority:
+
+* filtreleme
+* task listesi
+* task detail
+* dashboard detayları
+
+gibi yerlerde gösterilebilir.
+
+Ancak **hangi görsel biçimde gösterileceğine kullanıcı karar verecek.**
+
+---
+
+# 11. DEADLINE
+
+Task'ın deadline bilgisi frontend'de anlamlı şekilde gösterilecek.
+
+Örneğin kullanıcı:
+
+> "Hangi görevler gecikmiş?"
+
+sorusunun cevabını kolayca görebilmeli.
+
+Ama ana dashboard'da gereksiz ayrıntı bombardımanı yapılmayacak.
+
+---
+
+# 12. TASK HISTORY
+
+Task geçmişi V1'in kesin özelliklerinden biridir.
+
+Örneğin:
+
+```text
+TODO
+ ↓
+IN_PROGRESS
+ ↓
+DONE
+```
+
+History'de:
+
+* eski status
+* yeni status
+* değiştiren kişi
+* değişiklik zamanı
+
+gibi bilgiler bulunur.
+
+Frontend'de history detay ekranında/alanında gösterilebilir.
+
+---
+
+# 13. DASHBOARD TASARIM FELSEFESİ
+
+Bu Faz 8'in **en önemli UX kararlarından biridir.**
+
+## Ana prensip:
+
+> **Önce işlevsellik ve anlaşılabilirlik, sonra görsel şıklık.**
+
+Kurumsal uygulamada kullanıcı ilk bakışta:
+
+> "Durum ne?"
+
+sorusunun cevabını almalı.
+
+---
+
+# 14. ÖZET → DETAY → DAHA DETAY
+
+TaskFlow'da kullanılacak temel UX yaklaşımı:
+
+## Progressive Disclosure / Aşamalı Bilgi Gösterimi
+
+İlk seviye:
+
+```text
+Toplam görev
+Devam eden
+Tamamlanan
+Geciken
+```
+
+Kullanıcı örneğin:
+
+```text
+8 DEVAM EDEN
+```
+
+kartına tıklarsa:
+
+```text
+IN PROGRESS — 8 GÖREV
+
+HIGH       3
+MEDIUM     4
+LOW        1
+
+Geciken    1
+Zamanında  7
+```
+
+gibi daha ayrıntılı bilgi görebilir.
+
+Daha sonra belirli göreve tıklarsa:
+
+```text
+Görev
+Açıklama
+Priority
+Deadline
+Status
+Sorumlu
+History
+```
+
+gibi ayrıntılar gelir.
+
+### Ama:
+
+Ana ekrana bütün metrikleri koymak yok.
+
+Kullanıcının istemediği veya ihtiyaç duymadığı ayrıntılar öne çıkarılmayacak.
+
+---
+
+# 15. ŞEF DASHBOARD'U
+
+Şefin dashboard'unun ana amacı:
+
+> **Birimdeki işlerin genel durumunu görmek.**
+
+Örneğin ilk seviyede:
+
+```text
+TOPLAM GÖREV
+DEVAM EDEN
+TAMAMLANAN
+GECİKEN
+```
+
+gibi özetler.
+
+Bunların herhangi birine tıklayınca ayrıntıya inilebilir.
+
+Örneğin:
+
+```text
+Devam Eden: 12
+```
+
+↓
+
+```text
+12 görev
+
+HIGH: 3
+MEDIUM: 6
+LOW: 3
+
+Deadline:
+Geciken: 1
+Zamanında: 11
+```
+
+Sonra görev bazına inilebilir.
+
+---
+
+# 16. PERSONEL DASHBOARD'U
+
+Personelin ana sorusu:
+
+> **"Benim işlerim ne durumda?"**
+
+Dolayısıyla ana dashboard:
+
+```text
+Benim görevlerim
+Toplam
+Devam eden
+Tamamlanan
+Geciken
+```
+
+gibi kişisel ve işlevsel bilgilerden oluşmalı.
+
+Personelin ihtiyacı olmayan:
+
+```text
+Birimde 42 görev var
+Diğer personellerin 17 görevi var
+```
+
+gibi bilgiler ana ekrana zorla çıkarılmamalı.
+
+---
+
+# 17. GÖREV TALEPLERİ DASHBOARD'A NASIL GİRECEK?
+
+Ana ekranda sadece özet:
+
+### Personel:
+
+```text
+Bekleyen Görev Talepleri
+1
+```
+
+### Şef:
+
+```text
+Bekleyen Görev Talepleri
+3
+```
+
+Tıklayınca detay ekranı açılır.
+
+Bu sayede ana ekran sade kalır.
+
+---
+
+# 18. ŞEFİN GÖREV TALEBİ EKRANI
+
+Şef:
+
+```text
+Görev Talepleri
+```
+
+ekranında:
+
+```text
+Ahmet Yılmaz
+
+Yeni rapor hazırlama
+
+HIGH
+30 Ağustos
+
+[ Kabul Et ]
+[ Reddet ]
+```
+
+görebilir.
+
+Reddederse:
+
+```text
+Red sebebi:
+[........................]
+
+[ Reddet ]
+```
+
+gibi bir alan bulunabilir.
+
+**Bu ekranın kesin görsel düzeni kullanıcı tarafından belirlenecek.**
+
+---
+
+# 19. PERSONEL GÖREV TALEBİ EKRANI
+
+Personel kendi taleplerini görebilir:
+
+```text
+PENDING
+APPROVED
+REJECTED
+```
+
+Örneğin:
+
+```text
+Yeni rapor hazırlama
+PENDING
+27 Ağustos
+```
+
+veya:
+
+```text
+Yeni rapor hazırlama
+REJECTED
+
+Sebep:
+Mevcut görev planında bulunuyor.
+```
+
+---
+
+# 20. FRONTEND SAYFALARI
+
+V1 ana sayfaları:
+
+```text
+/login
+/register
+/dashboard
+/tasks
+```
+
+Bunlar kesin ana akış.
+
+Buna ek olarak ihtiyaç doğrultusunda:
+
+```text
+profile
+task detail
+task request
+admin/user management
+```
+
+gibi ekranlar/componentler olabilir.
+
+Ancak bunların **hangi route ve layout ile yapılacağı görsel/UX tasarım kararından sonra kesinleştirilecek.**
+
+---
+
+# 21. `/LOGIN`
+
+Temel işlev:
+
+```text
+Email
+Password
+[ Login ]
+```
+
+Backend:
+
+```text
+POST /login
+```
+
+↓
+
+```text
+JWT
+```
+
+↓
+
+authenticated frontend.
+
+Görsel:
+
+**Kullanıcı karar verecek.**
+
+Ben kendim:
+
+* renk
+* logo
+* background
+* kart
+* form düzeni
+* animasyon
+* typography
+
+seçmeyeceğim.
+
+---
+
+# 22. `/REGISTER`
+
+Burada iki kullanım senaryosu var.
+
+## Kişisel kullanım
+
+Kullanıcı:
+
+```text
+Register
+ ↓
+USER
+ ↓
+Kendi TaskFlow alanı
+```
+
+oluşturabilir.
+
+## Kurumsal kullanım
+
+Kurumsal personel hesaplarının ADMIN/ŞEF tarafından oluşturulması hedefleniyor.
+
+Bu nedenle:
+
+> **Public register üzerinden herhangi bir kişinin kendisini ADMIN ilan etmesine izin verilmeyecek.**
+
+ADMIN hesabı kurumsal kullanımda başlangıç/kurulum hesabı olarak oluşturulacak.
+
+---
+
+# 23. REGISTER İÇİN BACKEND NOTU
+
+Mevcut backend'de:
+
+```text
+POST /users
+```
+
+ADMIN korumalı.
+
+Bu nedenle React'te gerçek `/register` akışını yapmadan önce backend'de:
+
+```text
+Public register → USER
+```
+
+mantığı için gerekli endpoint/akış ayrıca düzenlenecek.
+
+Bu, Faz 8'e geçmeden önce yapılması gereken küçük backend hazırlıklarından biridir.
+
+---
+
+# 24. `/DASHBOARD`
+
+Dashboard role göre farklı içerik gösterebilir.
+
+```text
+Login
+ ↓
+JWT
+ ↓
+Current user
+ ↓
+role
+ ├── ADMIN → Şef dashboard
+ └── USER  → Personel dashboard
+```
+
+Bu frontend'de aynı uygulama içinde role-aware UI oluşturur.
+
+---
+
+# 25. `/TASKS`
+
+TaskFlow'un ana çalışma alanıdır.
+
+Backend'in mevcut özellikleri frontend'e bağlanacak:
+
+```text
+GET /tasks
+POST /tasks
+GET /tasks/{task_id}
+PATCH /tasks/{task_id}
+DELETE /tasks/{task_id}
+GET /tasks/{task_id}/history
+```
+
+ve ilgili filtre/search/sort/pagination parametreleri.
+
+Frontend kullanıcıya:
+
+* task listesi
+* search
+* filter
+* priority
+* deadline
+* status
+* pagination
+* task detail
+* update
+* delete
+
+gibi işlemleri sunacak.
+
+---
+
+# 26. FRONTEND → BACKEND İLETİŞİMİ
+
+Faz 8'in teknik olarak en önemli kısmı:
+
+```text
+React
+ ↓
+HTTP Request
+ ↓
+FastAPI Router
+ ↓
+Service
+ ↓
+SQLAlchemy
+ ↓
+PostgreSQL
+```
+
+geri dönüş:
+
+```text
+PostgreSQL
+ ↓
+Service
+ ↓
+Router
+ ↓
+JSON
+ ↓
+React
+ ↓
+State
+ ↓
+UI
+```
+
+Bu noktada backend artık tek başına bir proje olmaktan çıkıp gerçek frontend ile birleşecek.
+
+---
+
+# 27. REACT'TE ÖĞRENİLECEKLER
+
+Ayrı ayrı haftalarca çalışılmayacak.
+
+TaskFlow'u yaparken öğrenilecek.
+
+Minimum konular:
+
+```text
+HTML
+CSS
+JavaScript temelleri
+
+React
+├── Component
+├── Props
+├── State
+├── Event
+├── useEffect
+└── API çağrısı
+```
+
+Bunların tamamı gerçek TaskFlow özellikleri üzerinde öğrenilecek.
+
+---
+
+# 28. COMPONENT MANTIĞI
+
+React'te büyük sayfaları tek parça yazmak yerine tekrar kullanılabilir componentler kullanılacak.
+
+Örneğin mantıksal olarak:
+
+```text
+Sidebar
+Header
+Button
+Input
+Card
+Badge
+Task
+Modal
+```
+
+gibi componentler olabilir.
+
+Ama:
+
+> **"Her şeyi component yapalım, 50 klasör açalım."**
+
+yaklaşımı kullanılmayacak.
+
+Faz 7'de backend için benimsediğimiz gibi frontend'de de:
+
+> **Gerektiği kadar abstraction.**
+
+---
+
+# 29. TASARIM REFERANSI — KULLANICININ BEĞENDİĞİ ÖRNEK
+
+Kullanıcı, bir dashboard tasarım örneği gönderdi ve özellikle şu anlayışı beğendi:
+
+* Sidebar
+* modern dashboard
+* özet kartları
+* temiz bilgi hiyerarşisi
+* detaylara tıklayarak ilerleme
+* modern ve şık görünüm
+* dashboard merkezli yapı
+
+Bu örnek **TaskFlow için tasarım referansıdır.**
+
+Ancak:
+
+> **Aynı tasarım birebir kopyalanmayacak.**
+
+Ayrıca örnekte bulunan her özellik TaskFlow'a alınmayacak.
+
+Örneğin:
+
+```text
+Projects
+Analytics
+Calendar
+Reports
+Team Members
+Upgrade
+```
+
+gibi özellikler TaskFlow'da mevcut değilse sırf tasarımda var diye eklenmeyecek.
+
+---
+
+# 30. KURUMSAL TASARIM FELSEFESİ
+
+TaskFlow'un görsel dili:
+
+### Kurumsal
+
+Staj projesinde BURULAŞ'ın birim içi görev yönetim sistemi olarak anlatılabilecek kadar ciddi.
+
+### Basit
+
+Kullanıcı ne yapacağını düşünmemeli.
+
+### Anlaşılabilir
+
+Bilginin hiyerarşisi açık olmalı.
+
+### İşlevsel
+
+Ana ekranda işlevsellik estetikten önce gelir.
+
+### Şık
+
+Ancak detay ekranlarında daha zengin görsel yaklaşım kullanılabilir.
+
+---
+
+# 31. ANA EKRAN VS DETAY EKRANI
+
+## Ana ekran
+
+```text
+Sade
++
+Kurumsal
++
+Özet
++
+İşlevsel
+```
+
+## Detay
+
+```text
+Daha zengin
++
+Daha ayrıntılı
++
+Daha şık
+```
+
+Örneğin:
+
+```text
+DASHBOARD
+
+12 Devam Eden
+```
+
+↓
+
+tıklama
+
+```text
+12 Devam Eden Görev
+
+Priority dağılımı
+Deadline dağılımı
+Görev listesi
+```
+
+↓
+
+tıklama
+
+```text
+Task Detail
+
+Description
+Priority
+Status
+Deadline
+Assigned person
+History
+```
+
+---
+
+# 32. GÖRSEL KARARLARLA İLGİLİ DEĞİŞMEZ KURAL
+
+## ⚠️ KULLANICI ONAYI OLMADAN GÖRSEL KARAR ALINMAYACAK
+
+Bu TaskFlow için **hard constraint**.
+
+Ben kendim karar vermeyeceğim:
+
+* renk paleti
+* font
+* typography
+* sidebar görünümü
+* header
+* card tasarımı
+* button tasarımı
+* icon seçimi
+* border radius
+* shadow
+* spacing
+* animation
+* page layout
+* responsive görünümün görsel yaklaşımı
+* dashboard düzeni
+* task card/list/table görünümü
+
+### Süreç:
+
+```text
+Kullanıcı araştırır
+       ↓
+Referans gönderir
+       ↓
+Ben teknik/UX değerlendirmesi yaparım
+       ↓
+Kullanıcı karar verir
+       ↓
+Uygularız
+```
+
+**Kullanıcı istemeden "ben bunu daha güzel yapayım" yaklaşımı yok.**
+
+---
+
+# 33. KULLANICININ TASARIM ARAŞTIRMASI
+
+İncelenebilecek referans türleri:
+
+* Todoist
+* Linear
+* Trello
+* Asana
+* ClickUp
+* SaaS dashboard'ları
+* task management UI
+* project management UI
+* productivity dashboard
+* kurumsal dashboard
+
+Özellikle araştırılabilecek tasarım fikirleri:
+
+```text
+task management dashboard
+project management dashboard
+SaaS dashboard
+task management app UI
+productivity dashboard
+project management UI
+admin dashboard UI
+Kanban dashboard
+task manager web app
+```
+
+### İncelenecek platform türleri
+
+* gerçek ürünler
+* Dribbble
+* Behance
+* Mobbin
+* Figma Community
+
+Ama gerçek ürünlerin **gerçek kullanıcı akışlarını** incelemek, yalnızca güzel konseptlere bakmaktan daha değerli.
+
+---
+
+# 34. TASKFLOW'DA KULLANILABİLECEK TASARIM PATTERNLERİ
+
+Bunlar **seçilmiş nihai tasarımlar değildir.** Kullanıcının değerlendirebileceği yöntemlerdir.
+
+## SaaS / Dashboard Design
+
+```text
+Sidebar
++
+Header
++
+Main Content
+```
+
+## List / Table View
+
+Çok sayıda task için.
+
+## Kanban
+
+```text
+TODO
+IN PROGRESS
+DONE
+```
+
+## Master–Detail
+
+```text
+Task list
+   ↓
+Task detail
+```
+
+## Card-based UI
+
+Taskların kart olarak gösterilmesi.
+
+## Progressive Disclosure
+
+```text
+Özet
+ ↓
+Detay
+ ↓
+Daha detay
+```
+
+TaskFlow için özellikle **Progressive Disclosure** fikri güçlü şekilde benimsenmiştir.
+
+Ancak nihai görsel yöntem yine kullanıcı tarafından seçilecektir.
+
+---
+
+# 35. V1'DE KESİNLİKLE OLMAYACAKLAR
+
+Şimdilik kapsam dışı:
+
+```text
+❌ Bildirim sistemi
+❌ Email notification
+❌ Push notification
+❌ Background scheduler
+❌ Sürekli deadline kontrolü
+❌ Devasa analytics
+❌ 10 çeşit grafik
+❌ Devasa admin panel
+❌ Karmaşık permission sistemi
+❌ Microservice mimarisi
+❌ Gereksiz klasör/component karmaşası
+❌ Yüzlerce test
+❌ USER → USER görev devri
+```
+
+---
+
+# 36. SONRADAN EKLENEBİLECEKLER
+
+TaskFlow v1 tamamlandıktan sonra sistem yeniden yazılmadan genişletilebilir.
+
+## Notification
+
+```text
+Notification model
+ ↓
+Migration
+ ↓
+Notification service
+ ↓
+Scheduler / background job
+ ↓
+Endpoint
+ ↓
+React notification component
+```
+
+## Analytics
+
+```text
+Mevcut Task verileri
+ ↓
+Yeni dashboard endpoint
+ ↓
+React chart component
+```
+
+## Advanced Admin
+
+```text
+Admin page
+ ↓
+Endpointler
+ ↓
+Role kontrolü
+```
+
+## Task Transfer
+
+```text
+TaskTransferRequest
+ ↓
+USER → USER
+ ↓
+Kabul
+ ↓
+ADMIN onayı
+```
+
+## Daha kapsamlı testler
+
+Mevcut endpoint/service'lere daha fazla test eklenebilir.
+
+---
+
+# 37. NEDEN V1'İ KIRIYORUZ?
+
+İlk fikir:
+
+> "Her özelliği olan büyük ve tam kapsamlı bir uygulama."
+
+Yeni yaklaşım:
+
+> **"Önce çalışan, güzel görünen, gerçek kullanıcı tarafından kullanılabilen sağlam bir v1."**
+
+Bu değişiklik bilinçli.
+
+V1'in amacı:
+
+```text
+Çalışıyor
++
+Kullanılabilir
++
+Kurumsal
++
+Güvenli
++
+Genişletilebilir
+```
+
+olmak.
+
+Her şeyi ilk versiyona doldurmak değil.
+
+---
+
+# 38. FAZ 8 YOL HARİTASI
+
+## FAZ 8.0 — Backend hazırlık kontrolü
+
+React'e geçmeden önce:
+
+* `/register` akışını netleştir
+* public registration → USER
+* ADMIN hesabının oluşturulma yöntemini netleştir
+* mevcut API endpointlerini kontrol et
+* TaskRequest backend kapsamını uygula
+* migration
+* schema
+* service
+* endpoint
+* test
+* mevcut testleri yeniden çalıştır
+
+Amaç:
+
+> Frontend'in bağlanacağı backend API'sinin hazır olması.
+
+---
+
+# FAZ 8.1 — Frontend projesinin kurulması
+
+React projesi.
+
+Öğrenilecek:
+
+* npm
+* proje yapısı
+* HTML
+* CSS
+* JavaScript temel syntax
+* JSX
+
+Amaç:
+
+```text
+React app
+ ↓
+Browser
+```
+
+çalıştırmak.
+
+---
+
+# FAZ 8.2 — İlk UI / Tasarım sistemi
+
+Bu aşamada **kodlamadan önce kullanıcı tasarımı onaylar.**
+
+Kararlaştırılacak:
+
+* renkler
+* typography
+* spacing
+* layout
+* sidebar
+* header
+* buttons
+* inputs
+* cards
+* badges
+* task görünümü
+* genel kurumsal kimlik
+
+### Kullanıcı onayı olmadan implementation yok.
+
+---
+
+# FAZ 8.3 — React Component mantığı
+
+Öğrenilecek:
+
+```text
+Component
+Props
+State
+Events
+```
+
+TaskFlow üzerinden.
+
+Örneğin:
+
+```text
+TaskCard
+ ↓
+props
+```
+
+ve:
+
+```text
+TaskList
+ ↓
+TaskCard
+```
+
+---
+
+# FAZ 8.4 — Login
+
+```text
+/login
+```
+
+Akış:
+
+```text
+Form
+ ↓
+POST /login
+ ↓
+JWT
+ ↓
+Frontend authentication state
+ ↓
+Dashboard
+```
+
+Öğrenilecek:
+
+* form handling
+* event
+* state
+* API request
+* response handling
+* authentication
+
+---
+
+# FAZ 8.5 — Register
+
+```text
+/register
+```
+
+Kişisel kullanıcı:
+
+```text
+Register
+ ↓
+USER
+```
+
+Kurumsal ADMIN/personel oluşturma mantığı backend kurallarına göre ayrılır.
+
+---
+
+# FAZ 8.6 — Authentication'ın frontend'e entegrasyonu
+
+```text
+JWT
+ ↓
+Authenticated requests
+ ↓
+Current user
+ ↓
+Role
+```
+
+React:
+
+```text
+USER
+ADMIN
+```
+
+ayrımını öğrenir.
+
+Frontend'de role göre UI gösterilebilir.
+
+Ama gerçek güvenlik **backend'dedir.**
+
+Frontend'deki:
+
+```text
+"Bu butonu göstermiyorum."
+```
+
+tek başına authorization değildir.
+
+Backend yine yetki kontrolü yapar.
+
+---
+
+# FAZ 8.7 — Dashboard
+
+Role-aware dashboard:
+
+```text
+ADMIN → Şef dashboard
+USER  → Personel dashboard
+```
+
+Önce sade özetler.
+
+Sonra tıklanabilir detaylar.
+
+---
+
+# FAZ 8.8 — Tasks
+
+Ana çalışma alanı:
+
+```text
+/tasks
+```
+
+İşlevler:
+
+* listeleme
+* oluşturma
+* güncelleme
+* silme
+* status
+* priority
+* deadline
+* search
+* filter
+* sort
+* pagination
+
+---
+
+# FAZ 8.9 — Task Detail
+
+Task:
+
+```text
+title
+description
+status
+priority
+deadline
+assigned_to
+```
+
+ve:
+
+```text
+history
+```
+
+görüntülenir.
+
+---
+
+# FAZ 8.10 — Task Request
+
+Kurumsal USER:
+
+```text
+Yeni görev talebi
+```
+
+oluşturur.
+
+ADMIN:
+
+```text
+Bekleyen talepler
+```
+
+görür.
+
+```text
+Accept
+Reject
+```
+
+işlemleri.
+
+Reject durumunda:
+
+```text
+review_comment
+```
+
+gösterilir.
+
+---
+
+# FAZ 8.11 — ADMIN / ŞEF fonksiyonları
+
+Gerektiği kadar basit:
+
+```text
+Personeller
+```
+
+alanı.
+
+Şef:
+
+* personel görür
+* personel oluşturur
+* görev verir
+* görevleri takip eder
+* task request inceler
+
+Devasa admin paneli yok.
+
+---
+
+# FAZ 8.12 — Error / Loading / Empty States
+
+Gerçek kullanıcı deneyimi için:
+
+```text
+Loading
+Empty
+Error
+Success
+```
+
+durumları ele alınır.
+
+Örneğin:
+
+```text
+Hiç görev yok
+```
+
+durumu normal bir kullanıcı durumudur; hata değildir.
+
+---
+
+# FAZ 8.13 — Frontend ↔ Backend final entegrasyonu
+
+Tüm akış:
+
+```text
+React
+ ↓
+API
+ ↓
+FastAPI
+ ↓
+Service
+ ↓
+PostgreSQL
+```
+
+test edilir.
+
+---
+
+# FAZ 8.14 — Responsive / UI finalizasyonu
+
+Kullanıcının onayladığı tasarımın:
+
+* desktop
+* uygun ekran boyutları
+* form davranışları
+* task listesi
+* dashboard
+
+kontrol edilir.
+
+Görsel kararlar yine kullanıcıya aittir.
+
+---
+
+# FAZ 8.15 — Final frontend testleri
+
+V1'in gerçek kullanıcı akışları:
+
+```text
+Register
+ ↓
+Login
+ ↓
+Dashboard
+ ↓
+Tasks
+ ↓
+Create
+ ↓
+Update
+ ↓
+Complete
+ ↓
+Delete
+ ↓
+History
+```
+
+Kurumsal:
+
+```text
+ADMIN
+ ↓
+Personel
+ ↓
+Task
+ ↓
+USER
+```
+
+Görev talebi:
+
+```text
+USER
+ ↓
+Task Request
+ ↓
+ADMIN
+ ↓
+Approve
+ ↓
+Task
+```
+
+kişisel:
+
+```text
+USER
+ ↓
+Kendi Task
+```
+
+test edilir.
+
+---
+
+# 39. FAZ 8 SONUNDA ORTAYA ÇIKACAK ÜRÜN
+
+## Kişisel kullanıcı
+
+```text
+TaskFlow
+   ↓
+Register/Login
+   ↓
+Dashboard
+   ↓
+Kendi Tasks
+   ↓
+Create
+Update
+Complete
+Search
+Filter
+Deadline
+History
+```
+
+## Kurumsal personel
+
+```text
+BURULAŞ X Birimi
+   ↓
+USER
+   ↓
+Dashboard
+   ↓
+Kendisine verilen görevler
+   ↓
+Task yönetimi
+
+Gerekirse:
+   ↓
+Görev Talebi
+   ↓
+Şef
+```
+
+## Kurumsal şef
+
+```text
+BURULAŞ X Birimi
+   ↓
+ADMIN / ŞEF
+   ↓
+Dashboard
+   ↓
+Personeller
+   ↓
+Görevler
+   ↓
+Görev ata
+
+ve:
+
+Görev Talepleri
+ ↓
+Kabul / Red
+```
+
+---
+
+# 40. TAM SİSTEM MİMARİSİ
+
+Faz 7 backend:
+
+```text
+                         TASKFLOW
+                            │
+                ┌───────────┴───────────┐
+                ↓                       ↓
+             FRONTEND                BACKEND
+              React                  FastAPI
+                │                       │
+             State                  Router
+                │                       │
+             API call                Service
+                │                       │
+                └───────────HTTP────────┘
+                                        │
+                                    SQLAlchemy
+                                        │
+                                    PostgreSQL
+                                        │
+                                      Alembic
+```
+
+Authentication:
+
+```text
+Login
+ ↓
+JWT
+ ↓
+Frontend
+ ↓
+Authorization Header
+ ↓
+get_current_user()
+ ↓
+User
+ ↓
+Role
+```
+
+Authorization:
+
+```text
+ADMIN → Şef yetkileri
+USER  → Personel yetkileri
+```
+
+---
+
+# 41. TASKFLOW V1 TAM ÖZELLİK LİSTESİ
+
+## Authentication
+
+* Register
+* Login
+* JWT
+* Password hashing
+* Authentication
+* Authorization
+* Role control
+
+## USER / PERSONEL
+
+* Login
+* Profile
+* Task list
+* Task create request
+* Task update
+* Task complete
+* Task delete
+* Search
+* Filter
+* Sort
+* Pagination
+* Priority
+* Deadline
+* History
+* Dashboard
+
+## ADMIN / ŞEF
+
+* Login
+* User/personnel creation
+* Personnel listing
+* Personnel management
+* Task creation
+* Task assignment
+* Task tracking
+* Dashboard
+* Task Request management
+* Approve
+* Reject
+* Reject reason
+
+## Kişisel kullanım
+
+* Independent USER account
+* Direct task creation
+* Own dashboard
+* Own tasks
+* No corporate visibility
+
+## Infrastructure
+
+* React
+* FastAPI
+* PostgreSQL
+* SQLAlchemy
+* Alembic
+* JWT
+* GitHub
+* README
+* Deployment
+
+---
+
+# 42. V1'İN ÖNCELİK SIRASI
+
+Her şeyi eşit derecede önemli görmeyeceğiz.
+
+## 🔴 Birinci öncelik
+
+```text
+Authentication
+Task management
+Role/authorization
+Dashboard
+API connection
+```
+
+## 🟠 İkinci öncelik
+
+```text
+Task Request
+History
+Search
+Filter
+Pagination
+Deadline
+```
+
+## 🟢 Üçüncü öncelik
+
+```text
+Görsel polish
+Animasyon
+Ekstra görsel ayrıntılar
+```
+
+Ama bu, UI'ın kötü olacağı anlamına gelmez.
+
+Sadece:
+
+> **Önce kullanıcı işini yapabilsin. Sonra görsel zenginliği artırırız.**
+
+---
+
+# 43. KESİN OLARAK YAPILMAYACAK TASARIM HATASI
+
+Ana dashboard'ı:
+
+```text
+Grafik
+Grafik
+Grafik
+KPI
+KPI
+Grafik
+Chart
+Chart
+```
+
+haline getirmeyeceğiz.
+
+Eğer kullanıcı için önemli olan:
+
+```text
+12 devam eden görev
+```
+
+ise bunu net göstereceğiz.
+
+Ayrıntı gerekiyorsa:
+
+```text
+tıkla
+ ↓
+detay
+```
+
+yapacağız.
+
+---
+
+# 44. KURUMSAL HİKÂYENİN TEMEL AKIŞI
+
+Staj defterinde anlatılabilecek en önemli workflow:
+
+```text
+ŞEF
+ ↓
+Görev oluşturur
+ ↓
+Personel seçer
+ ↓
+Görev atanır
+ ↓
+Personel görevi görür
+ ↓
+IN_PROGRESS
+ ↓
+DONE
+ ↓
+History
+```
+
+İkinci workflow:
+
+```text
+PERSONEL
+ ↓
+Yeni görev talebi
+ ↓
+PENDING
+ ↓
+ŞEF
+ ├── APPROVED → TASK
+ └── REJECTED → açıklama
+```
+
+Üçüncü workflow:
+
+```text
+KİŞİSEL KULLANICI
+ ↓
+Kendi TaskFlow hesabı
+ ↓
+Kendi görevlerini doğrudan yönetir
+```
+
+---
+
+# 45. GELECEKTE GENİŞLETME PRENSİBİ
+
+V1 bittikten sonra sistem:
+
+```text
+TaskFlow v1
+```
+
+olarak internette çalışan sağlam bir uygulama olacak.
+
+Sonra örneğin:
+
+### Bildirim
+
+```text
+Notification
+```
+
+eklenebilir.
+
+### Grafik
+
+```text
+Task data
+ ↓
+Analytics endpoint
+ ↓
+Chart
+```
+
+eklenebilir.
+
+### Gelişmiş admin
+
+```text
+Admin
+ ↓
+Advanced management
+```
+
+eklenebilir.
+
+### Görev devri
+
+```text
+TaskTransferRequest
+```
+
+eklenebilir.
+
+**Ama mevcut sistemi baştan yazmak gerekmemeli.**
+
+Faz 7'deki katmanlı yapı ve Faz 8'deki component yaklaşımının amacı da bu genişletilebilirliği korumaktır.
+
+---
+
+# 46. FAZ 8 İÇİN ANA GELİŞTİRME PRENSİPLERİ
+
+```text
+1. Önce çalışan özellik
+2. Sonra doğru kullanıcı akışı
+3. Sonra görsel polish
+```
+
+ve:
+
+```text
+Backend güvenliği
+        >
+Frontend gizleme
+```
+
+Yani kullanıcıya butonu göstermemek güvenlik değildir.
+
+Asıl yetki backend tarafından kontrol edilir.
+
+---
+
+# 47. FAZ 8'DE ÖĞRENME FELSEFESİ
+
+React'i teorik olarak haftalarca öğrenip sonra proje yapmayacağız.
+
+Örneğin:
+
+> "Bugün State öğreniyorum."
+
+yerine:
+
+> "Task statusunu değiştirmek için State kullanıyorum."
+
+şeklinde ilerleyeceğiz.
+
+Örnek:
+
+```text
+Task status
+ ↓
+React state
+ ↓
+Event
+ ↓
+API PATCH
+ ↓
+Backend
+ ↓
+Response
+ ↓
+State update
+ ↓
+UI
+```
+
+Böylece React kavramları gerçek bağlamda öğrenilecek.
+
+---
+
+# 48. FAZ 8 SONUNDA HEDEF
+
+Son kullanıcı açısından:
+
+```text
+https://taskflow...
+
+        TASKFLOW
+
+       Login
+         ↓
+     Dashboard
+         ↓
+       Tasks
+         ↓
+Create / Update / Complete
+         ↓
+      History
+```
+
+Kurumsal:
+
+```text
+Şef
+ ↓
+Dashboard
+ ↓
+Personeller
+ ↓
+Görevler
+ ↓
+Takip
+```
+
+Personel:
+
+```text
+Login
+ ↓
+Benim görevlerim
+ ↓
+Görevi tamamla
+```
+
+Görev talebi:
+
+```text
+Personel
+ ↓
+Talep
+ ↓
+Şef
+ ↓
+Onay
+ ↓
+Task
+```
+
+---
+
+# 49. FAZ 8'İN TEK CÜMLELİK TANIMI
+
+> **Faz 8'de mevcut TaskFlow FastAPI backend'ine React tabanlı, kurumsal, sade, anlaşılabilir ve role göre farklılaşan bir frontend bağlanacak; kişisel kullanıcı ve kurumsal şef/personel kullanım senaryoları tek bir genişletilebilir v1 mimarisi içinde gerçek kullanıcı akışına dönüştürülecek.**
+
+---
+
+# 50. EN ÖNEMLİ "DEĞİŞMEZLER" — KISA KAYIT
+
+Sohbet kaybolursa önce **bu bölümü** oku:
+
+```text
+TASKFLOW V1 KARARLARI
+
+1. TaskFlow hem kişisel hem kurumsal kullanılabilir.
+
+2. Teknik roller:
+   ADMIN = Şef/Birim yöneticisi
+   USER  = Personel
+
+3. Ayrı Chief/Manager/Coach rolleri V1'de yok.
+
+4. Kişisel USER kendi görevini doğrudan oluşturabilir.
+
+5. Kurumsal USER doğrudan kurumsal Task oluşturmaz.
+   Görev talebi gönderir.
+   ADMIN onaylarsa Task oluşur.
+
+6. ADMIN/Şef doğrudan personeline Task verebilir.
+
+7. USER → USER görev devri V1'de yok.
+
+8. Kurumsal ve kişisel kullanım birbirine karışmaz.
+   Kişisel hesap ayrı hesap olarak kullanılabilir.
+
+9. Public register:
+   Yeni kullanıcı USER olarak oluşabilir.
+   Public register üzerinden ADMIN olunamaz.
+   Kurumsal ADMIN hesabı başlangıç/kurulum hesabıdır.
+
+10. V1:
+   Login
+   Register
+   JWT
+   Authorization
+   Dashboard
+   Tasks
+   Search
+   Filter
+   Sort
+   Pagination
+   Deadline
+   Priority
+   History
+   Task Request
+   Admin/Şef yönetimi
+
+11. V1'de:
+   Notification yok
+   Scheduler yok
+   Devasa analytics yok
+   Devasa admin panel yok
+   Microservice yok
+   Yüzlerce test yok
+   USER→USER transfer yok.
+
+12. Dashboard:
+   Sade + kurumsal + işlevsel.
+
+13. UX:
+   Özet → Tıkla → Detay → Daha detay.
+   Progressive Disclosure yaklaşımı.
+
+14. Ana ekranda gereksiz metrikler gösterilmez.
+
+15. Detay ekranlarında daha fazla bilgi ve görsel zenginlik olabilir.
+
+16. Kullanıcının gönderdiği dashboard screenshot:
+   Tasarım referansıdır.
+   Birebir kopyalanmayacaktır.
+
+17. Sidebar + dashboard + summary cards + temiz bilgi hiyerarşisi
+   beğenilen tasarım yaklaşımıdır.
+
+18. Görsel kararların tamamı kullanıcıya aittir.
+   Kullanıcı onaylamadan:
+   renk/layout/font/component/görsel stil/animasyon vb.
+   seçilmeyecek.
+
+19. Frontend:
+   HTML
+   CSS
+   JavaScript
+   React
+   Component
+   Props
+   State
+   Event
+   useEffect
+   API calls
+   TaskFlow yapılırken öğrenilecek.
+
+20. Hedef:
+   "Büyük ve her özellikli uygulama" değil,
+   "çalışan, güzel, gerçek kullanıcı tarafından kullanılabilen,
+   sağlam TaskFlow v1."
+
+21. Faz 8 sonunda:
+   React + FastAPI + PostgreSQL + GitHub + Deployment
+   ile gerçek full-stack uygulama.
+```
+
+---
+
+# FAZ 8 BAŞLANGIÇ NOKTASI
+
+**Şu anda henüz React kodlamaya başlamıyoruz.**
+
+Sıradaki mantıksal sıra:
+
+```text
+Faz 7
+   ↓
+Backend tamamlandı ✅
+   ↓
+TaskFlow fonksiyonel kapsamı netleşti ✅
+   ↓
+Task Request kararı netleşti ✅
+   ↓
+USER→USER transfer V1 dışı ❌
+   ↓
+Kişisel / Kurumsal ayrımı netleşti ✅
+   ↓
+Dashboard UX prensibi netleşti ✅
+   ↓
+Kullanıcı tasarım referanslarını araştırıyor
+   ↓
+TASARIM KARARLARI
+   ↓
+Backend register/TaskRequest son hazırlıkları
+   ↓
+React kurulumu
+   ↓
+FAZ 8
+```
+
+**Bu dokümanın en önemli kuralı:** Teknik mimariyi ben yönlendirebilirim; ancak **TaskFlow'un nasıl görüneceğine sen karar vereceksin.** Senin gönderdiğin tasarım örneğini temel referanslardan biri olarak tutuyoruz, fakat nihai tasarım henüz seçilmiş değil.

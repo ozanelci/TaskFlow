@@ -1,0 +1,364 @@
+Tamam. Bundan sonra **Taskozz'u bu plana göre götürüyoruz** ve ben sana her seferinde **yalnızca sıradaki tek adımı** vereceğim. Bilmediğin bir modüle geçiyorsak önce ne olduğunu açıklayacağım; direkt “şunu değiştir” deyip seni boşluğa bırakmayacağım.
+
+Bir şeyi netleştireyim: Kalıcı hafıza aracına bu oturumda yazma yetkim yok. Ama bu konuşmadaki mevcut proje durumu + önceki kararları **çalışma planımızın kanonik referansı** olarak kullanacağım.
+
+# TASKOZZ — HIZLANDIRILMIŞ AKSİYON HARİTASI
+
+## Aşama 0 — Devralma / durum tespiti
+
+**GPT + Antigravity**
+
+1. Mevcut repo Antigravity'ye açılacak.
+2. Antigravity **hiçbir kodu değiştirmeden** tüm projeyi analiz edecek.
+3. Mevcut özellikler / eksikler / yarım işler / hatalı noktalar çıkarılacak.
+4. Ben Antigravity raporunu mevcut bilgilerimizle karşılaştıracağım.
+5. Tek bir **gerçek kalan işler listesi** oluşturacağız.
+
+**Amaç:** Yanlış bir şeyi yeniden yaptırmamak.
+
+---
+
+## Aşama 1 — Register
+
+Mevcut mimariye uygun:
+
+```text
+POST /auth/register
+        ↓
+USER hesabı
+        ↓
+Argon2
+        ↓
+DB
+```
+
+Public registration'da:
+
+```text
+ADMIN seçeneği YOK
+```
+
+Antigravity kodu yazacak, ben mimariyi kontrol edeceğim.
+
+---
+
+# Aşama 2 — Gerçek Personal / Corporate Architecture
+
+**En önemli aşama.**
+
+Mevcut:
+
+```text
+User
+  +
+ADMIN / USER
+  +
+Room
+```
+
+yapısının üzerine final mimariyi kuracağız.
+
+Hedef:
+
+```text
+PERSONAL CONTEXT
+    ↓
+kendi görevleri
+
+
+CORPORATE CONTEXT
+    ↓
+Room
+    ↓
+ADMIN / USER
+    ↓
+Corporate Tasks
+    ↓
+Task Requests
+```
+
+Ve:
+
+```text
+Personal ≠ Corporate
+```
+
+yalnızca frontend filtresi olmayacak.
+
+**DB + backend authorization + task queries + room/request mantığı birlikte değişecek.**
+
+Bu aşamada Antigravity'nin çok dosyalı değişiklik kabiliyeti özellikle işimize yarayacak.
+
+---
+
+# Aşama 3 — Personal USER
+
+Final kural:
+
+```text
+Personal USER
+    ↓
+Task oluşturabilir
+    ↓
+assigned_to = kendisi
+```
+
+Corporate USER:
+
+```text
+Corporate USER
+    ↓
+Task Request
+    ↓
+ADMIN
+```
+
+Mevcut task sistemimizi mümkün olduğunca koruyacağız.
+
+---
+
+# Aşama 4 — Profile
+
+Profile ekranını mevcut auth/user altyapısına oturtacağız.
+
+Gereksiz özellik yok.
+
+---
+
+# Aşama 5 — Dashboard final
+
+Mevcut Dashboard'u çöpe atmayacağız.
+
+Sadece:
+
+* personal/corporate izolasyonu
+* ADMIN/USER görünümü
+* Progressive Disclosure
+* mevcut task summary
+
+final mimariye uygun hale getirilecek.
+
+---
+
+# Aşama 6 — USER Delete
+
+Backend:
+
+```text
+USER
+ ↓
+kendi personal task'ı
+ ↓
+DELETE
+```
+
+Ama corporate task için yetki kuralları korunacak.
+
+---
+
+# Aşama 7 — Taskozz cleanup
+
+Kodun içinde:
+
+```text
+TaskFlow
+```
+
+kalan yerler aranacak.
+
+Ürün adı:
+
+```text
+Taskozz
+```
+
+olacak.
+
+---
+
+# Aşama 8 — Final integration
+
+Tek tek bütün akışlar:
+
+```text
+Register
+ ↓
+Login
+ ↓
+JWT
+ ↓
+Dashboard
+ ↓
+Personal Task
+```
+
+ve:
+
+```text
+Corporate Account
+ ↓
+Room
+ ↓
+Membership
+ ↓
+ADMIN approval
+ ↓
+Task Request
+ ↓
+Task
+```
+
+kontrol edilecek.
+
+---
+
+# Aşama 9 — Responsive final
+
+Zaten yaptığımız responsive CSS'leri bozmayacağız.
+
+Sadece son kontrol/düzeltme.
+
+---
+
+# Aşama 10 — Code cleanup
+
+Burada **gereksiz refactor yok**.
+
+Sadece:
+
+* kullanılmayan kod
+* yanlış import
+* isim tutarsızlıkları
+* tekrarlar
+* bariz teknik borçlar
+
+temizlenecek.
+
+---
+
+# Aşama 11 — README + GitHub
+
+Final proje:
+
+```text
+Taskozz
+├── Backend
+├── Frontend
+├── PostgreSQL
+├── Docker
+├── JWT
+├── Argon2
+└── README
+```
+
+şeklinde profesyonel şekilde sunulacak.
+
+---
+
+# Aşama 12 — Deployment
+
+React + FastAPI + PostgreSQL.
+
+Environment variables, CORS, production ayarları vb.
+
+---
+
+# Aşama 13 — Final test
+
+En son.
+
+**Şimdi test manyağı olmayacağız.**
+
+Her aşamada Antigravity kendi yaptığı değişiklik için temel kontrolü yapacak; kapsamlı final testini en sonda yapacağız.
+
+---
+
+# GPT + Antigravity görev paylaşımı
+
+Bunu özellikle sabitliyoruz:
+
+### 🧠 Ben
+
+* Mimari karar
+* Gereksinim kontrolü
+* “Bu mevcut sistemimizi bozar mı?”
+* Backend/frontend ilişkisinin kontrolü
+* Antigravity'nin önerisini değerlendirme
+* Sana ne yapacağını anlatma
+
+### 🤖 Antigravity
+
+* Repo okuma
+* Dosya değiştirme
+* Çoklu dosya işlemleri
+* Migration
+* Kod yazma
+* Terminal
+* lint/test
+* mümkün olduğunda browser kontrolü
+
+### 👤 Sen
+
+Sadece:
+
+> **Benim verdiğim sıradaki adımı uygula.**
+
+Ve sonucu bana getir.
+
+---
+
+# 🚨 Çok önemli çalışma kuralımız
+
+Antigravity'ye **asla**:
+
+> “Projeyi tamamla.”
+
+demeyeceğiz.
+
+Her görev:
+
+```text
+ANALİZ
+↓
+PLAN
+↓
+UYGULA
+↓
+KONTROL
+↓
+RAPOR
+↓
+GPT KONTROLÜ
+↓
+SONRAKİ GÖREV
+```
+
+şeklinde olacak.
+
+Bu, mevcut çalışan **Rooms / Tasks / Task Requests / History** sistemlerinin gereksiz yere bozulmasını önleyecek.
+
+---
+
+# Şimdi BAŞLIYORUZ — ADIM 1
+
+Henüz kod değiştirmiyoruz.
+
+### Senin şu an yapacağın tek şey:
+
+**Antigravity'yi aç ve mevcut `TaskFlow` GitHub reposunu/proje klasörünü Antigravity'de aç.**
+
+Repo:
+
+`ozanelci/TaskFlow`
+
+**Açtıktan sonra hiçbir dosyayı değiştirme.**
+
+Sonra bana sadece:
+
+> **“Antigravity açık”**
+
+de.
+
+Ondan sonra sana **Antigravity'ye yapıştıracağın ilk analiz promptunu** vereceğim.
+
+Bu noktadan sonra gerçekten **tek tek ilerleyeceğiz.**

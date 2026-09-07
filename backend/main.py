@@ -5,13 +5,38 @@ from sqlalchemy.orm import Session
 from services import user_service
 from database import get_db
 from dependencies import get_current_user, require_role
-from exceptions import TaskNotFound
 from models import User
-from routers import tasks
+from routers import tasks, task_requests, users
 from schemas import (LoginRequest, TokenResponse, UserCreate, UserResponse,UserUpdate)
+from fastapi.middleware.cors import CORSMiddleware
+from routers.auth import router as auth_router
+from routers.rooms import router as rooms_router
+from exceptions import (
+    UserNotFound,
+    UserAlreadyExists,
+    ForbiddenError,
+    UnauthorizedError,
+    InvalidRequestError,
+    TaskNotFound,
+    RoomNotFound,
+    RoomMembershipNotFound,
+    RoomAlreadyJoined,
+)
+
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173","http://localhost:5174"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(tasks.router)
+app.include_router(users.router)
+app.include_router(task_requests.router)
+app.include_router(auth_router)
+app.include_router(rooms_router)
 security = HTTPBearer()
 
 from fastapi.responses import JSONResponse
@@ -80,6 +105,41 @@ async def task_not_found_handler(request, exc):
         content={
             "error": "TASK_NOT_FOUND",
             "message": "Görev bulunamadı."
+        }
+    )
+    
+@app.exception_handler(RoomNotFound)
+async def room_not_found_handler(request, exc):
+
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": "ROOM_NOT_FOUND",
+            "message": "Oda bulunamadı."
+        }
+    )
+
+
+@app.exception_handler(RoomMembershipNotFound)
+async def room_membership_not_found_handler(request, exc):
+
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": "ROOM_MEMBERSHIP_NOT_FOUND",
+            "message": "Oda üyelik isteği bulunamadı."
+        }
+    )
+
+
+@app.exception_handler(RoomAlreadyJoined)
+async def room_already_joined_handler(request, exc):
+
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": "ROOM_ALREADY_JOINED",
+            "message": "Bu kullanıcı için bu odada zaten bir üyelik kaydı bulunuyor."
         }
     )
 
@@ -158,7 +218,21 @@ def delete_user(
         user_id=user_id,
     )
 
+@app.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=201
+)
+def register(
+    user_data: UserCreate,
+    db: Session = Depends(get_db)
+):
+    return user_service.register_user(
+        db=db,
+        user_data=user_data,
+    )
     
+
 @app.post("/login", response_model=TokenResponse)
 def login(
     login_data: LoginRequest,
@@ -176,7 +250,8 @@ def get_me(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "email": current_user.email,
         "role": current_user.role,
-    }    
+        
+    }
     
 @app.get("/admin-test")
 def admin_test(

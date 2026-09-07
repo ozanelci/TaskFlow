@@ -1,0 +1,134 @@
+Şimdi kapatacağımız eksikler
+1. Register
+/register
+     ↓
+Public registration
+     ↓
+USER
+Register sayfası
+Backend'e bağlanması
+Public kullanıcı → USER
+Kullanıcının kendisini ADMIN yapamaması
+Register → Login → Dashboard akışı
+
+Dokümanda Register V1'in kesin parçası.
+
+2. Kişisel / Kurumsal hesap ayrımı
+
+Burası en önemli eksik.
+
+                KİŞİ
+
+          ┌───────┴───────┐
+          ↓               ↓
+   KURUMSAL HESAP    BİREYSEL HESAP
+          ↓               ↓
+   ADMIN / USER          USER
+          ↓               ↓
+  Kurumsal Tasks     Kişisel Tasks
+
+Aynı kişi isterse:
+
+Ahmet — kurumsal USER hesabı
+Ahmet — bireysel USER hesabı
+
+şeklinde iki ayrı hesap kullanabilecek.
+
+Kişisel görevler kurumsal tarafta görünmeyecek. Bu, yönergede kesin karar.
+
+Bunun için backend veri modelini de gerektiği kadar değiştireceğiz; frontend'e sahte bir ayrım koymayacağız.
+
+3. Bireysel USER → doğrudan Task
+
+Bireysel hesap:
+
+USER
+ ↓
+New Task
+ ↓
+Task
+
+oluşturabilecek.
+
+Ama:
+
+KURUMSAL USER
+ ↓
+Task Request
+ ↓
+ADMIN
+ ↓
+Approve
+ ↓
+Task
+
+akışı aynen korunacak.
+
+4. Profile
+
+V1 kapsamındaki USER özelliklerinden biri.
+
+Mevcut kullanıcı/auth yapısını bozmayacak şekilde:
+
+Profile
+ ├── Full name
+ ├── Email
+ └── izin verilen kullanıcı bilgileri
+
+akışını ekleyeceğiz.
+
+5. Dashboard → Progressive Disclosure
+
+Mevcut dashboard'u çöpe atmayacağız.
+
+Eksik olan yerde:
+
+ÖZET
+ ↓
+TIKLA
+ ↓
+DETAY
+ ↓
+TASK DETAIL
+
+akışını tamamlayacağız.
+
+Ana dashboard yine sade kalacak. Dokümanın özellikle istediği yaklaşım bu.
+
+6. Task delete yetkisini yönergeyle hizalama
+
+Dokümanın V1 listesinde USER tarafında Task delete bulunuyor.
+
+Mevcut backend ise bunu ADMIN ile sınırlıyor.
+
+Burada yönergeyi esas alacağız ve mevcut çalışan yapıyı gereksiz değiştirmeden gerekli authorization düzenlemesini yapacağız.
+
+7. Taskozz isim temizliği
+
+Artık ürün adı:
+
+TASKOZZ
+
+olacak.
+
+Kullanıcıya görünen:
+
+TaskFlow
+
+ifadelerini:
+
+Taskozz
+
+yapacağız.
+
+Kodda teknik olarak TaskFlow geçen her şeyi körü körüne değiştirmeyeceğiz; örneğin repository adı veya geçmiş commit mesajları önemli değil. Uygulamanın ürün adı ve kullanıcıya görünen metinler Taskozz olacak.
+
+8. UI / tasarım
+
+Burada ben yeni görsel karar vermiyorum.
+
+Dokümandaki hard constraint devam ediyor:
+
+Görsel kararların sahibi kullanıcıdır.
+
+Dolayısıyla çalışan UI'ı sırf “daha güzel” diye değiştirmeyeceğiz.
