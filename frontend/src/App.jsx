@@ -10,16 +10,17 @@ import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import TaskDetail from './pages/TaskDetail'
 import TaskRequests from './pages/TaskRequests'
-import AdminUsers from './pages/AdminUsers'
 import Register from './pages/Register'
+import Profile from './pages/Profile'
 import ProtectedRoute from './components/ProtectedRoute'
 import Rooms from './pages/Rooms'
+import { RoomProvider } from './context/RoomContext'
 
 function App() {
   return (
-    <BrowserRouter>
-
-      <Routes>
+    <RoomProvider>
+      <BrowserRouter>
+        <Routes>
 
         {/* PUBLIC */}
 
@@ -35,6 +36,15 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />
@@ -77,17 +87,6 @@ function App() {
           }
         />
 
-        {/* ADMIN ONLY */}
-
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute requiredRole="ADMIN">
-              <AdminUsers />
-            </ProtectedRoute>
-          }
-        />
-
         {/* FALLBACK */}
 
         <Route
@@ -101,8 +100,8 @@ function App() {
         />
 
       </Routes>
-
-    </BrowserRouter>
+      </BrowserRouter>
+    </RoomProvider>
   )
 }
 

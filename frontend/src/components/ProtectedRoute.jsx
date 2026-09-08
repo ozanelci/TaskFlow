@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { getCurrentUser } from '../services/authService'
 import Navigation from './Navigation'
 
-function ProtectedRoute({ children, requiredRole }) {
+function ProtectedRoute({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -45,18 +45,6 @@ function ProtectedRoute({ children, requiredRole }) {
     return (
       <Navigate
         to="/login"
-        replace
-      />
-    )
-  }
-
-  if (
-    requiredRole &&
-    user.role !== requiredRole
-  ) {
-    return (
-      <Navigate
-        to="/dashboard"
         replace
       />
     )

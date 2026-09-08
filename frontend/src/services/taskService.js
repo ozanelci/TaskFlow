@@ -8,10 +8,16 @@ export async function getTasks({
   pageSize = 10,
   sortBy = 'id',
   sortOrder = 'asc',
+  room_id,
+  deadline_status,
 } = {}) {
   const token = localStorage.getItem('access_token')
 
   const params = new URLSearchParams()
+
+  if (room_id !== undefined) {
+    params.append('room_id', room_id)
+  }
 
   if (status) {
     params.append('status', status)
@@ -23,6 +29,10 @@ export async function getTasks({
 
   if (search) {
     params.append('search', search)
+  }
+
+  if (deadline_status) {
+    params.append('deadline_status', deadline_status)
   }
 
   if (dueDateFrom) {
@@ -184,11 +194,16 @@ export async function deleteTask(taskId) {
 }
 
 
-export async function getPersonnel() {
+export async function getPersonnel(roomId) {
   const token = localStorage.getItem('access_token')
 
+  const params = new URLSearchParams()
+  if (roomId) {
+    params.append('room_id', roomId)
+  }
+
   const response = await fetch(
-    'http://127.0.0.1:8000/personnel',
+    `http://127.0.0.1:8000/personnel?${params.toString()}`,
     {
       method: 'GET',
       headers: {
@@ -226,6 +241,32 @@ export async function getTask(taskId) {
     throw new Error(
       data.message || 'Görev alınamadı.',
     )
+  }
+
+  return data
+}
+export async function getTaskSummary(roomId) {
+  const token = localStorage.getItem('access_token')
+
+  const params = new URLSearchParams()
+  if (roomId) {
+    params.append('room_id', roomId)
+  }
+
+  const response = await fetch(
+    `http://127.0.0.1:8000/tasks/summary?${params.toString()}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Görev özeti alınamadı.')
   }
 
   return data

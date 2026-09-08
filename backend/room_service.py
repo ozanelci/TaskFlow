@@ -11,6 +11,7 @@ from exceptions import (
     RoomNotFound,
     RoomMembershipNotFound,
 )
+from dependencies import check_room_admin
 
 
 def generate_join_code(length: int = 8) -> str:
@@ -27,9 +28,6 @@ def create_room(
     current_user: User,
     db: Session,
 ):
-    if current_user.role != "ADMIN":
-        raise ForbiddenError()
-
     while True:
         join_code = generate_join_code()
 
@@ -55,6 +53,7 @@ def create_room(
         room_id=room.id,
         user_id=current_user.id,
         status="APPROVED",
+        role="ADMIN"
     )
 
     db.add(membership)
@@ -69,9 +68,6 @@ def join_room(
     current_user: User,
     db: Session,
 ):
-    if current_user.role != "USER":
-        raise ForbiddenError()
-
     room = (
         db.query(Room)
         .filter(Room.join_code == join_code)
@@ -97,6 +93,7 @@ def join_room(
         room_id=room.id,
         user_id=current_user.id,
         status="PENDING",
+        role="USER"
     )
 
     db.add(membership)
@@ -110,19 +107,7 @@ def get_room_requests(
     current_user: User,
     db: Session,
 ):
-    room = (
-        db.query(Room)
-        .filter(
-            Room.id == room_id
-        )
-        .first()
-    )
-
-    if not room:
-        raise RoomNotFound()
-
-    if room.created_by != current_user.id:
-        raise ForbiddenError()
+    check_room_admin(db, current_user.id, room_id)
 
     memberships = (
         db.query(RoomMembership)
@@ -168,17 +153,7 @@ def approve_room_request(
     current_user: User,
     db: Session,
 ):
-    room = (
-        db.query(Room)
-        .filter(Room.id == room_id)
-        .first()
-    )
-
-    if not room:
-        raise RoomNotFound()
-
-    if room.created_by != current_user.id:
-        raise ForbiddenError()
+    check_room_admin(db, current_user.id, room_id)
 
     membership = (
         db.query(RoomMembership)
@@ -194,6 +169,7 @@ def approve_room_request(
         raise RoomMembershipNotFound()
 
     membership.status = "APPROVED"
+    membership.role = "USER"
 
     db.commit()
     db.refresh(membership)
@@ -207,17 +183,7 @@ def reject_room_request(
     current_user: User,
     db: Session,
 ):
-    room = (
-        db.query(Room)
-        .filter(Room.id == room_id)
-        .first()
-    )
-
-    if not room:
-        raise RoomNotFound()
-
-    if room.created_by != current_user.id:
-        raise ForbiddenError()
+    check_room_admin(db, current_user.id, room_id)
 
     membership = (
         db.query(RoomMembership)
@@ -243,27 +209,6 @@ def get_my_rooms(
     current_user: User,
     db: Session,
 ):
-    if current_user.role == "ADMIN":
-        rooms = (
-            db.query(Room)
-            .filter(
-                Room.created_by == current_user.id
-            )
-            .all()
-        )
-
-        return [
-            {
-                "id": room.id,
-                "name": room.name,
-                "join_code": room.join_code,
-                "created_by": room.created_by,
-                "membership_status": "APPROVED",
-                "created_at": room.created_at,
-            }
-            for room in rooms
-        ]
-
     memberships = (
         db.query(RoomMembership)
         .filter(
@@ -286,8 +231,13 @@ def get_my_rooms(
         .all()
     )
 
-    membership_map = {
+    membership_status_map = {
         membership.room_id: membership.status
+        for membership in memberships
+    }
+    
+    membership_role_map = {
+        membership.room_id: membership.role
         for membership in memberships
     }
 
@@ -297,9 +247,13 @@ def get_my_rooms(
             "name": room.name,
             "join_code": room.join_code,
             "created_by": room.created_by,
-            "membership_status": membership_map.get(
+            "membership_status": membership_status_map.get(
                 room.id,
                 "PENDING",
+            ),
+            "role": membership_role_map.get(
+                room.id,
+                "USER"
             ),
             "created_at": room.created_at,
         }
@@ -311,20 +265,7 @@ def get_room_members(
     current_user: User,
     db: Session,
 ):
-    if current_user.role != "ADMIN":
-        raise ForbiddenError()
-
-    room = (
-        db.query(Room)
-        .filter(
-            Room.id == room_id,
-            Room.created_by == current_user.id,
-        )
-        .first()
-    )
-
-    if not room:
-        raise RoomNotFound()
+    check_room_admin(db, current_user.id, room_id)
 
     memberships = (
         db.query(RoomMembership)
@@ -357,6 +298,7 @@ def get_room_members(
                 "full_name": user.full_name,
                 "email": user.email,
                 "status": membership.status,
+                "role": membership.role,
                 "created_at": membership.created_at,
             }
         )

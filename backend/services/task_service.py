@@ -14,7 +14,7 @@ from exceptions import (
 from models import Task, TaskHistory, TaskRequest, User, Room, RoomMembership
 from schemas import TaskUpdate,TaskSortBy, TaskSortOrder, TaskStatus, TaskCreate, DeadlineStatus, TaskPriority
 from utils import get_deadline_status
-from dependencies import get_current_user
+from dependencies import get_current_user, check_room_admin, check_room_user_or_admin
 
 def create_task(
     task_data: TaskCreate,
@@ -48,33 +48,8 @@ def create_task(
 
     # ODA GÖREVİ
     else:
-        if current_user.role != "ADMIN":
-            raise ForbiddenError()
-
-        room = (
-            db.query(Room)
-            .filter(
-                Room.id == task_data.room_id,
-                Room.created_by == current_user.id,
-            )
-            .first()
-        )
-
-        if not room:
-            raise RoomNotFound()
-
-        membership = (
-            db.query(RoomMembership)
-            .filter(
-                RoomMembership.room_id == room.id,
-                RoomMembership.user_id == task_data.assigned_to,
-                RoomMembership.status == "APPROVED",
-            )
-            .first()
-        )
-
-        if not membership:
-            raise ForbiddenError()
+        check_room_admin(db, current_user.id, task_data.room_id)
+        check_room_user_or_admin(db, task_data.assigned_to, task_data.room_id)
 
     task = Task(
         title=task_data.title,
@@ -108,54 +83,26 @@ def update_task(
     if not task:
         raise TaskNotFound()
 
-    # USER sadece kendisine atanmış kişisel görevi güncelleyebilir.
-    # Oda görevini doğrudan güncelleyemez.
-    if current_user.role == "USER":
+    if task.room_id is None:
         if task.assigned_to != current_user.id:
             raise ForbiddenError()
-
-        if task.room_id is not None:
-            # USER oda görevinde sadece durumunu değiştirebilir.
+    else:
+        membership = check_room_user_or_admin(db, current_user.id, task.room_id)
+        if membership.role == "USER":
+            if task.assigned_to != current_user.id:
+                raise ForbiddenError()
+            
             if task_data.status is None:
                 raise ForbiddenError()
-
-            if task_data.title is not None:
+            
+            if any([
+                task_data.title is not None,
+                task_data.description is not None,
+                task_data.priority is not None,
+                task_data.assigned_to is not None,
+                task_data.due_date is not None
+            ]):
                 raise ForbiddenError()
-
-            if task_data.description is not None:
-                raise ForbiddenError()
-
-            if task_data.priority is not None:
-                raise ForbiddenError()
-
-            if task_data.assigned_to is not None:
-                raise ForbiddenError()
-
-            if task_data.due_date is not None:
-                raise ForbiddenError()
-
-    # ADMIN
-    elif current_user.role == "ADMIN":
-        # Kişisel görev veya kendi oluşturduğu görev
-        if task.created_by == current_user.id:
-            pass
-
-        # Oda görevi ise oda kendisine ait olmalı
-        elif task.room_id is not None:
-            room = (
-                db.query(Room)
-                .filter(
-                    Room.id == task.room_id,
-                    Room.created_by == current_user.id,
-                )
-                .first()
-            )
-
-            if not room:
-                raise ForbiddenError()
-
-        else:
-            raise ForbiddenError()
 
     # Son tarih kontrolü
     if task_data.due_date is not None:
@@ -193,18 +140,7 @@ def update_task(
             raise UserNotFound()
 
         if task.room_id is not None:
-            membership = (
-                db.query(RoomMembership)
-                .filter(
-                    RoomMembership.room_id == task.room_id,
-                    RoomMembership.user_id == task_data.assigned_to,
-                    RoomMembership.status == "APPROVED",
-                )
-                .first()
-            )
-
-            if not membership:
-                raise ForbiddenError()
+            check_room_user_or_admin(db, task_data.assigned_to, task.room_id)
 
         task.assigned_to = task_data.assigned_to
 
@@ -230,40 +166,18 @@ def delete_task(
     if not task:
         raise TaskNotFound()
 
-    # USER görev silemez.
-    if current_user.role == "USER":
-        raise ForbiddenError()
-
-    # ADMIN kendi oluşturduğu kişisel görevi silebilir.
-    if task.created_by == current_user.id:
-        db.delete(task)
-        db.commit()
-        return {
-            "message": "Görev başarıyla silindi."
-        }
-
-    # Oda görevi ise oda ADMIN'e ait olmalı.
-    if task.room_id is not None:
-        room = (
-            db.query(Room)
-            .filter(
-                Room.id == task.room_id,
-                Room.created_by == current_user.id,
-            )
-            .first()
-        )
-
-        if not room:
+    if task.room_id is None:
+        if task.created_by != current_user.id:
             raise ForbiddenError()
+    else:
+        check_room_admin(db, current_user.id, task.room_id)
 
-        db.delete(task)
-        db.commit()
+    db.delete(task)
+    db.commit()
 
-        return {
-            "message": "Görev başarıyla silindi."
-        }
-
-    raise ForbiddenError()
+    return {
+        "message": "Görev başarıyla silindi."
+    }
     
 def get_task(
     task_id: int,
@@ -279,27 +193,13 @@ def get_task(
     if not task:
         raise TaskNotFound()
 
-    if current_user.role == "USER":
+    if task.room_id is None:
         if task.assigned_to != current_user.id:
             raise ForbiddenError()
-
-    elif current_user.role == "ADMIN":
-        if task.created_by != current_user.id:
-            room_is_owned = False
-
-            if task.room_id is not None:
-                room = (
-                    db.query(Room)
-                    .filter(
-                        Room.id == task.room_id,
-                        Room.created_by == current_user.id,
-                    )
-                    .first()
-                )
-
-                room_is_owned = room is not None
-
-            if not room_is_owned:
+    else:
+        membership = check_room_user_or_admin(db, current_user.id, task.room_id)
+        if membership.role == "USER":
+            if task.assigned_to != current_user.id:
                 raise ForbiddenError()
 
     return {
@@ -323,19 +223,19 @@ def get_task_history(
     task_id: int,
     current_user: User
 ):
-    query = db.query(Task).filter(
-        Task.id == task_id
-    )
-
-    if current_user.role == "USER":
-        query = query.filter(
-            Task.assigned_to == current_user.id
-        )
-
-    task = query.first()
+    task = db.query(Task).filter(Task.id == task_id).first()
 
     if not task:
         raise TaskNotFound()
+
+    if task.room_id is None:
+        if task.assigned_to != current_user.id:
+            raise ForbiddenError()
+    else:
+        membership = check_room_user_or_admin(db, current_user.id, task.room_id)
+        if membership.role == "USER":
+            if task.assigned_to != current_user.id:
+                raise ForbiddenError()
 
     history_entries = (
         db.query(TaskHistory)
@@ -358,70 +258,38 @@ def get_task_history(
     
 def get_task_summary(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    room_id: int | None = None,
 ):
     query = db.query(Task)
 
-    if current_user.role == "USER":
-        query = query.filter(
-            Task.assigned_to == current_user.id
-        )
+    if room_id is None:
+        query = query.filter(Task.room_id.is_(None), Task.assigned_to == current_user.id)
+    else:
+        membership = check_room_user_or_admin(db, current_user.id, room_id)
+        query = query.filter(Task.room_id == room_id)
+        if membership.role == "USER":
+            query = query.filter(Task.assigned_to == current_user.id)
 
     tasks = query.all()
 
+    my_tasks = [t for t in tasks if t.assigned_to == current_user.id]
+
     return {
-    "total": len(tasks),
-
-    "todo": sum(
-        task.status == TaskStatus.TODO
-        for task in tasks
-    ),
-
-    "in_progress": sum(
-        task.status == TaskStatus.IN_PROGRESS
-        for task in tasks
-    ),
-
-    "done": sum(
-        task.status == TaskStatus.DONE
-        for task in tasks
-    ),
-
-    "cancelled": sum(
-        task.status == TaskStatus.CANCELLED
-        for task in tasks
-    ),
-
-    "overdue": sum(
-        get_deadline_status(task) == DeadlineStatus.OVERDUE
-        for task in tasks
-    ),
-
-    "upcoming": sum(
-        get_deadline_status(task) == DeadlineStatus.UPCOMING
-        for task in tasks
-    ),
-
-    "no_due_date": sum(
-        get_deadline_status(task) == DeadlineStatus.NO_DUE_DATE
-        for task in tasks
-    ),
-
-    "low_priority": sum(
-        task.priority == TaskPriority.LOW
-        for task in tasks
-    ),
-
-    "medium_priority": sum(
-        task.priority == TaskPriority.MEDIUM
-        for task in tasks
-    ),
-
-    "high_priority": sum(
-        task.priority == TaskPriority.HIGH
-        for task in tasks
-    )
-}
+        "total": len(tasks),
+        "todo": sum(task.status == TaskStatus.TODO for task in tasks),
+        "in_progress": sum(task.status == TaskStatus.IN_PROGRESS for task in tasks),
+        "done": sum(task.status == TaskStatus.DONE for task in tasks),
+        "cancelled": sum(task.status == TaskStatus.CANCELLED for task in tasks),
+        "overdue": sum(get_deadline_status(task) == DeadlineStatus.OVERDUE for task in tasks),
+        "upcoming": sum(get_deadline_status(task) == DeadlineStatus.UPCOMING for task in tasks),
+        "no_due_date": sum(get_deadline_status(task) == DeadlineStatus.NO_DUE_DATE for task in tasks),
+        "low_priority": sum(task.priority == TaskPriority.LOW for task in tasks),
+        "medium_priority": sum(task.priority == TaskPriority.MEDIUM for task in tasks),
+        "high_priority": sum(task.priority == TaskPriority.HIGH for task in tasks),
+        "my_total": len(my_tasks),
+        "my_done": sum(task.status == TaskStatus.DONE for task in my_tasks)
+    }
     
 def get_tasks(
     status: TaskStatus | None = None,
@@ -436,64 +304,43 @@ def get_tasks(
     sort_order: TaskSortOrder = TaskSortOrder.ASC,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    room_id: int | None = None,
 ):
     query = db.query(Task)
 
-    if current_user.role == "USER":
-        query = query.filter(
-            Task.assigned_to == current_user.id
-        )
-
-    elif current_user.role == "ADMIN":
-        owned_room_ids = (
-    db.query(Room.id)
-    .filter(
-        Room.created_by == current_user.id
-    )
-)
-
-        query = query.filter(
-            (Task.created_by == current_user.id)
-            | (Task.room_id.in_(owned_room_ids))
-        )
+    if room_id is None:
+        query = query.filter(Task.room_id.is_(None), Task.assigned_to == current_user.id)
+    else:
+        membership = check_room_user_or_admin(db, current_user.id, room_id)
+        query = query.filter(Task.room_id == room_id)
+        if membership.role == "USER":
+            query = query.filter(Task.assigned_to == current_user.id)
 
     if status:
-        query = query.filter(
-            Task.status == status
-        )
+        query = query.filter(Task.status == status)
 
     if priority:
-        query = query.filter(
-            Task.priority == priority
-        )
+        query = query.filter(Task.priority == priority)
 
     if search:
         search_text = f"%{search}%"
-
         query = query.filter(
             (Task.title.ilike(search_text))
             | (Task.description.ilike(search_text))
         )
 
     if due_date_from:
-        query = query.filter(
-            Task.due_date >= due_date_from
-        )
+        query = query.filter(Task.due_date >= due_date_from)
 
     if due_date_to:
-        query = query.filter(
-            Task.due_date <= due_date_to
-        )
+        query = query.filter(Task.due_date <= due_date_to)
 
     if sort_by == TaskSortBy.ID:
         sort_column = Task.id
-
     elif sort_by == TaskSortBy.TITLE:
         sort_column = Task.title
-
     elif sort_by == TaskSortBy.PRIORITY:
         sort_column = Task.priority
-
     elif sort_by == TaskSortBy.DUE_DATE:
         sort_column = Task.due_date
 
@@ -506,13 +353,10 @@ def get_tasks(
 
     if deadline_status:
         tasks = [
-            task
-            for task in tasks
-            if get_deadline_status(task) == deadline_status
+            task for task in tasks if get_deadline_status(task) == deadline_status
         ]
 
     total = len(tasks)
-
     tasks = tasks[skip:skip + limit]
 
     items = [

@@ -7,24 +7,11 @@ password_hash = PasswordHash.recommended()
 def hash_password(password: str) -> str:
     return password_hash.hash(password)
 
-from argon2 import PasswordHasher
-
-ph = PasswordHasher()
-
-
-def hash_password(password: str) -> str:
-    return ph.hash(password)
-
-
 def verify_password(password: str, hashed_password: str) -> bool:
     try:
-        return ph.verify(hashed_password, password)
+        return password_hash.verify(password, hashed_password)
     except Exception:
         return False
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    return password_hash.verify(password, hashed_password)
 
 from datetime import datetime, timedelta, timezone
 from jose import jwt

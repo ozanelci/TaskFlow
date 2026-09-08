@@ -1,425 +1,224 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import {
-  getTask,
-  updateTask,
-  getTaskHistory,
-} from '../services/taskService'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { getTask, updateTask } from '../services/taskService'
+import { getRoomMembers } from '../services/roomService'
 import { getCurrentUser } from '../services/authService'
-import './TaskDetail.css'
+import { useRoomContext } from '../context/RoomContext'
+
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Icons } from '../components/ui/Icons'
 
 function TaskDetail() {
-  const { taskId } = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
+  const { activeRoom } = useRoomContext()
 
   const [task, setTask] = useState(null)
-  const [history, setHistory] = useState([])
-  const [user, setUser] = useState(null)
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [status, setStatus] = useState('')
-  const [priority, setPriority] = useState('')
+
+  const [user, setUser] = useState(null)
+  const [roomMembers, setRoomMembers] = useState([])
+
+  const [newStatus, setNewStatus] = useState('')
   const [saving, setSaving] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
 
   useEffect(() => {
-    async function loadTask() {
+    let cancelled = false
+    async function loadData() {
       try {
         setLoading(true)
         setError('')
+        const [taskData, currentUser] = await Promise.all([
+          getTask(id),
+          getCurrentUser()
+        ])
 
-        const data = await getTask(taskId)
-        const historyData = await getTaskHistory(taskId)
-        const userData = await getCurrentUser()
+        if (cancelled) return
+        setTask(taskData)
+        setNewStatus(taskData.status)
+        setUser(currentUser)
 
-        setTask(data)
-        setStatus(data.status)
-        setPriority(data.priority)
-        setHistory(historyData)
-        setUser(userData)
-      } catch (error) {
-        setError(error.message)
+        if (taskData.room_id) {
+          try {
+            const members = await getRoomMembers(taskData.room_id)
+            if (!cancelled) setRoomMembers(members)
+          } catch {
+            if (!cancelled) setRoomMembers([])
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
+    loadData()
+    return () => { cancelled = true }
+  }, [id])
 
-    loadTask()
-  }, [taskId])
-
-  async function handleUpdate() {
+  async function handleStatusUpdate() {
     try {
       setSaving(true)
       setError('')
-
-      const updateData = {
-        status: status,
-      }
-
-      // USER sadece status değiştirebilir.
-      // ADMIN status ve priority değiştirebilir.
-      if (user?.role === 'ADMIN') {
-        updateData.priority = priority
-      }
-
-      const updatedTask = await updateTask(taskId, updateData)
-      const historyData = await getTaskHistory(taskId)
-
-      setTask(updatedTask)
-      setStatus(updatedTask.status)
-      setPriority(updatedTask.priority)
-      setHistory(historyData)
-    } catch (error) {
-      setError(error.message)
+      setSuccessMsg('')
+      await updateTask(task.id, { status: newStatus })
+      setTask({ ...task, status: newStatus })
+      setSuccessMsg('Durum güncellendi.')
+      setTimeout(() => setSuccessMsg(''), 3000)
+    } catch (err) {
+      setError(err.message)
     } finally {
       setSaving(false)
     }
   }
 
+  const getPriorityBadge = (prio) => {
+    switch (prio) {
+      case 'HIGH': return <Badge variant="danger">Yüksek</Badge>
+      case 'MEDIUM': return <Badge variant="warning">Orta</Badge>
+      case 'LOW': return <Badge variant="info">Düşük</Badge>
+      default: return <Badge>{prio}</Badge>
+    }
+  }
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'DONE': return <Badge variant="success">Tamamlandı</Badge>
+      case 'IN_PROGRESS': return <Badge variant="primary">Devam Ediyor</Badge>
+      case 'TODO': return <Badge variant="warning">Bekliyor</Badge>
+      case 'CANCELLED': return <Badge variant="default">İptal</Badge>
+      default: return <Badge>{status}</Badge>
+    }
+  }
+
+  const getAssignedName = (assignedId) => {
+    if (assignedId === user?.id) return user?.full_name || 'Sen'
+    const member = roomMembers.find(m => m.user_id === assignedId)
+    return member ? member.full_name : 'Bilinmeyen Personel'
+  }
+
   if (loading) {
     return (
-      <main className="task-detail-loading">
-        <p>Görev yükleniyor...</p>
-      </main>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 20px' }}>
+        <Icons.Loader2 className="ui-button-spinner" size={32} color="var(--primary)" />
+      </div>
     )
   }
 
-  if (error) {
+  if (error || !task) {
     return (
-      <main className="task-detail-page">
-        <div className="task-detail-error">
-          Hata: {error}
-        </div>
-
-        <button
-          type="button"
-          className="task-detail-button"
-          onClick={() => navigate('/tasks')}
-        >
-          Görevlere Dön
-        </button>
+      <main style={{ padding: '32px', maxWidth: 'var(--max-width)', margin: '0 auto' }}>
+        <Card padding="lg" style={{ textAlign: 'center' }}>
+          <Icons.AlertCircle size={48} color="var(--danger)" style={{ margin: '0 auto 16px' }} />
+          <h2 style={{ marginBottom: 16 }}>{error || 'Görev bulunamadı'}</h2>
+          <Button variant="secondary" onClick={() => navigate('/tasks')}>Görevlere Dön</Button>
+        </Card>
       </main>
     )
   }
 
-  if (!task) {
-    return (
-      <main className="task-detail-page">
-        <div className="task-detail-card">
-          <p>Görev bulunamadı.</p>
-
-          <button
-            type="button"
-            className="task-detail-button"
-            onClick={() => navigate('/tasks')}
-          >
-            Görevlere Dön
-          </button>
-        </div>
-      </main>
-    )
-  }
-
-  const isAdmin = user?.role === 'ADMIN'
-  const isRoomTask = task.room_id !== null
-
-
-  const canUpdateStatus =
-    isAdmin ||
-    user?.id === task.assigned_to
+  const isAdmin = activeRoom?.role === 'ADMIN'
+  const canUpdateStatus = isAdmin || user?.id === task.assigned_to
 
   return (
-    <main className="task-detail-page">
-
-      <div className="task-detail-header">
-        <div>
-          <h1>{task.title}</h1>
-
-          <p>
-            Görev #{task.id}
-          </p>
-        </div>
-
-        <div className="task-detail-actions">
-          <button
-            type="button"
-            className="task-detail-button"
-            onClick={() => navigate('/tasks')}
-          >
-            ← Görevlere Dön
-          </button>
-        </div>
+    <main style={{ padding: '32px', maxWidth: 'var(--max-width)', margin: '0 auto' }}>
+      <div style={{ marginBottom: 24 }}>
+        <Link to="/tasks" style={{ color: 'var(--text-muted)', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+          <Icons.ChevronDown style={{ transform: 'rotate(90deg)' }} size={16} /> Görevlere Dön
+        </Link>
       </div>
 
-      {error && (
-        <div className="task-detail-error">
-          Hata: {error}
-        </div>
-      )}
-
-      <div className="task-detail-grid">
-
-        {/* SOL TARAF */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 32 }}>
+        {/* Left Side: Detail */}
         <div>
+          <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 16 }}>
+            {task.title}
+          </h1>
+          
+          <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+            {getStatusBadge(task.status)}
+            {getPriorityBadge(task.priority)}
+          </div>
 
-          {/* AÇIKLAMA */}
-          <section className="task-detail-card">
-            <h2>Açıklama</h2>
-
-            <div className="task-detail-description">
-              {task.description || 'Açıklama bulunmuyor.'}
-            </div>
-          </section>
-
-          {/* GÖREV BİLGİLERİ */}
-          <section className="task-detail-card">
-            <h2>Görev Bilgileri</h2>
-
-            <div className="task-detail-fields">
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Durum
-                </span>
-
-                <span className="task-detail-field-value">
-                  {task.status}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Öncelik
-                </span>
-
-                <span className="task-detail-field-value">
-                  {task.priority}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Atanan kişi
-                </span>
-
-                {isRoomTask && (
-                  <div className="task-detail-field">
-                    <span className="task-detail-field-label">
-                      Görev türü
-                    </span>
-
-                    <span className="task-detail-field-value">
-                      Oda Görevi
-                    </span>
-                  </div>
-                )}
-
-                <span className="task-detail-field-value">
-                  Kullanıcı #{task.assigned_to}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Oluşturan
-                </span>
-
-                <span className="task-detail-field-value">
-                  Kullanıcı #{task.created_by}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Son tarih
-                </span>
-
-                <span className="task-detail-field-value">
-                  {task.due_date
-                    ? new Date(
-                        task.due_date
-                      ).toLocaleString('tr-TR')
-                    : 'Belirlenmemiş'}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Oluşturulma
-                </span>
-
-                <span className="task-detail-field-value">
-                  {new Date(
-                    task.created_at
-                  ).toLocaleString('tr-TR')}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Son güncelleme
-                </span>
-
-                <span className="task-detail-field-value">
-                  {new Date(
-                    task.updated_at
-                  ).toLocaleString('tr-TR')}
-                </span>
-              </div>
-
-              <div className="task-detail-field">
-                <span className="task-detail-field-label">
-                  Son tarih durumu
-                </span>
-
-                <span className="task-detail-field-value">
-                  {task.deadline_status || 'Belirtilmemiş'}
-                </span>
-              </div>
-
-            </div>
-          </section>
-
-          {/* GÜNCELLEME */}
-          <section className="task-detail-card">
-
-            <h2>Görevi Güncelle</h2>
-
-            <div className="task-detail-form">
-
-              <div className="task-detail-form-group">
-                <label htmlFor="task-status">
-                  Durum
-                </label>
-
-                <select
-                  id="task-status"
-                  value={status}
-                  onChange={(event) =>
-                    setStatus(event.target.value)
-                  }
-                  disabled={!canUpdateStatus || saving}
-                >
-                  <option value="TODO">
-                    Bekliyor
-                  </option>
-
-                  <option value="IN_PROGRESS">
-                    Devam Ediyor
-                  </option>
-
-                  <option value="DONE">
-                    Tamamlandı
-                  </option>
-
-                  <option value="CANCELLED">
-                    İptal
-                  </option>
-                </select>
-              </div>
-
-              <div className="task-detail-form-group">
-                <label htmlFor="task-priority">
-                  Öncelik
-                </label>
-
-                <select
-                  id="task-priority"
-                  value={priority}
-                  onChange={(event) =>
-                    setPriority(event.target.value)
-                  }
-                  disabled={!isAdmin || saving}
-                >
-                  <option value="LOW">
-                    Düşük
-                  </option>
-
-                  <option value="MEDIUM">
-                    Orta
-                  </option>
-
-                  <option value="HIGH">
-                    Yüksek
-                  </option>
-                </select>
-              </div>
-
-              <div className="task-detail-save">
-
-                {canUpdateStatus ? (
-                  <button
-                    type="button"
-                    className="task-detail-button task-detail-button-primary"
-                    onClick={handleUpdate}
-                    disabled={saving}
-                  >
-                    {saving
-                      ? 'Kaydediliyor...'
-                      : 'Değişiklikleri Kaydet'}
-                  </button>
-                ) : (
-                  <p>
-                    Bu görevi güncelleme yetkiniz bulunmuyor.
-                  </p>
-                )}
-
-              </div>
-
-            </div>
-
-          </section>
-
+          <Card padding="lg">
+            <h3 style={{ fontSize: 16, fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 16 }}>Açıklama</h3>
+            <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+              {task.description || 'Bu görev için açıklama girilmemiş.'}
+            </p>
+          </Card>
         </div>
 
-        {/* SAĞ TARAF */}
-        <section className="task-detail-card">
+        {/* Right Side: Meta & Actions */}
+        <div>
+          <Card padding="md" style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detaylar</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Atanan Kişi</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500 }}>
+                  <Icons.User size={16} color="var(--primary)" />
+                  {getAssignedName(task.assigned_to)}
+                </div>
+              </div>
 
-          <h2>Görev Geçmişi</h2>
+              <div>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Son Tarih</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500 }}>
+                  <Icons.Calendar size={16} color="var(--primary)" />
+                  {task.due_date ? new Date(task.due_date).toLocaleDateString('tr-TR') : 'Belirtilmemiş'}
+                </div>
+              </div>
 
-          {history.length === 0 ? (
-
-            <div className="task-history-empty">
-              Henüz durum değişikliği bulunmuyor.
+              <div>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Bağlam</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500 }}>
+                  <Icons.Briefcase size={16} color="var(--primary)" />
+                  {task.room_id ? 'Kurumsal Oda' : 'Kişisel'}
+                </div>
+              </div>
             </div>
+          </Card>
 
-          ) : (
+          <Card padding="md">
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durumu Güncelle</h3>
+            
+            {successMsg && (
+              <div style={{ fontSize: 13, color: 'var(--success)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icons.CheckCircle2 size={14} /> {successMsg}
+              </div>
+            )}
 
-            <div className="task-history">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <select 
+                value={newStatus} 
+                onChange={(e) => setNewStatus(e.target.value)}
+                disabled={!canUpdateStatus || saving}
+                style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', fontSize: 14, outline: 'none' }}
+              >
+                <option value="TODO">Bekliyor</option>
+                <option value="IN_PROGRESS">Devam Ediyor</option>
+                <option value="DONE">Tamamlandı</option>
+                <option value="CANCELLED">İptal Edildi</option>
+              </select>
 
-              {history.map((item) => (
-                <article
-                  className="task-history-item"
-                  key={item.id}
-                >
-
-                  <div className="task-history-status">
-                    {item.old_status || 'Başlangıç'}
-                    {' → '}
-                    {item.new_status}
-                  </div>
-
-                  <div className="task-history-meta">
-                    Değiştiren kullanıcı #{item.changed_by}
-                  </div>
-
-                  <div className="task-history-meta">
-                    {new Date(
-                      item.changed_at
-                    ).toLocaleString('tr-TR')}
-                  </div>
-
-                </article>
-              ))}
-
+              {canUpdateStatus ? (
+                <Button variant="primary" onClick={handleStatusUpdate} isLoading={saving} disabled={newStatus === task.status}>
+                  Güncelle
+                </Button>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 4 }}>
+                  Durumu güncelleme yetkiniz yok.
+                </div>
+              )}
             </div>
-
-          )}
-
-        </section>
-
+          </Card>
+        </div>
       </div>
-
     </main>
   )
 }

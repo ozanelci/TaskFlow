@@ -20,6 +20,7 @@ from models import Base
 
 test_engine = create_engine(TEST_DATABASE_URL)
 
+Base.metadata.drop_all(bind=test_engine)
 Base.metadata.create_all(bind=test_engine)
 
 
@@ -55,7 +56,6 @@ def test_user(db):
         full_name="Test User",
         email="test@example.com",
         password_hash=hash_password("Test123!"),
-        role="USER",
         is_active=True
     )
 

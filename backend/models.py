@@ -39,15 +39,7 @@ class User(Base):
         nullable=False
     )
 
-    role: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False
-    )
 
-    role: Mapped[str] = mapped_column(
-    String(20),
-    nullable=False
-)
 
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -126,6 +118,12 @@ class RoomMembership(Base):
         String(20),
         nullable=False,
         default="PENDING"
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="USER"
     )
 
     created_at: Mapped[datetime] = mapped_column(

@@ -29,17 +29,12 @@ class UserCreate(BaseModel):
     full_name: str
     email: EmailStr
     password: str
-    role: str
     
-class UserRole(str, Enum):
-    USER = "USER"
-    ADMIN = "ADMIN"
 
 class UserResponse(BaseModel):
     id: int
     full_name: str
     email: EmailStr
-    role: str
     is_active: bool
 
     model_config = {"from_attributes": True}
@@ -47,7 +42,6 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     full_name: str | None = None
     email: EmailStr | None = None
-    role: str | None = None
     is_active: bool | None = None
 
 class TaskCreate(BaseModel):
@@ -158,6 +152,7 @@ class RoomMembershipResponse(BaseModel):
     room_id: int
     user_id: int
     status: str
+    role: str
     created_at: datetime
 
     model_config = {"from_attributes": True}    
@@ -169,6 +164,7 @@ class RoomMemberResponse(BaseModel):
     full_name: str
     email: EmailStr
     status: str
+    role: str
     created_at: datetime
 class RoomRequestResponse(BaseModel):
     id: int
@@ -185,6 +181,7 @@ class MyRoomResponse(BaseModel):
     join_code: str
     created_by: int
     membership_status: str
+    role: str
     created_at: datetime
 
     model_config = {"from_attributes": True}    
@@ -196,3 +193,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+
+class PasswordUpdate(BaseModel):
+    old_password: str
+    new_password: str

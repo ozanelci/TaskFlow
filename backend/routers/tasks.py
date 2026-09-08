@@ -17,7 +17,7 @@ from schemas import (
     TaskUpdate,
     UserResponse,
 )
-from dependencies import get_current_user, require_role
+from dependencies import get_current_user
 
 
 router = APIRouter()
@@ -35,6 +35,7 @@ def get_tasks(
     limit: int = 10,
     sort_by: TaskSortBy = TaskSortBy.ID,
     sort_order: TaskSortOrder = TaskSortOrder.ASC,
+    room_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -50,17 +51,20 @@ def get_tasks(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
+        room_id=room_id,
         current_user=current_user,
     )
 
 
 @router.get("/tasks/summary")
 def get_task_summary(
+    room_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return task_service.get_task_summary(
         db=db,
+        room_id=room_id,
         current_user=current_user,
     )
 
@@ -94,15 +98,21 @@ def get_my_tasks(
 
 @router.get("/personnel", response_model=list[UserResponse])
 def get_personnel(
-    current_user: User = Depends(require_role("ADMIN")),
+    room_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from dependencies import check_room_admin
+    from models import RoomMembership
+    
+    check_room_admin(db, current_user.id, room_id)
+
     user_ids = (
-        db.query(Task.assigned_to)
+        db.query(RoomMembership.user_id)
         .filter(
-            Task.created_by == current_user.id,
-            Task.assigned_to.isnot(None),
-            Task.assigned_to != current_user.id,
+            RoomMembership.room_id == room_id,
+            RoomMembership.status == "APPROVED",
+            RoomMembership.user_id != current_user.id,
         )
         .distinct()
         .all()

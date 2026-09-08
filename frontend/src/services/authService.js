@@ -34,7 +34,6 @@ export async function register(fullName, email, password) {
       full_name: fullName,
       email: email,
       password: password,
-      role: 'USER',
     }),
   })
 
@@ -94,7 +93,7 @@ export async function loginUser(email, password) {
   return data
 }
 
-export async function registerUser(fullName, email, password,role) {
+export async function registerUser(fullName, email, password) {
   const response = await fetch('http://127.0.0.1:8000/register', {
     method: 'POST',
     headers: {
@@ -104,7 +103,6 @@ export async function registerUser(fullName, email, password,role) {
       full_name: fullName,
       email: email,
       password: password,
-      role: role,
     }),
   })
 
@@ -114,5 +112,50 @@ export async function registerUser(fullName, email, password,role) {
     throw new Error(data.detail || 'Kayıt oluşturulamadı.')
   }
 
+  return data
+}
+export async function updateProfile(fullName, email) {
+  const token = localStorage.getItem('access_token')
+  if (!token) throw new Error('Oturum bulunamadı.')
+
+  const response = await fetch(`${API_URL}/me`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      full_name: fullName,
+      email: email,
+    }),
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || data.detail || 'Profil güncellenemedi.')
+  }
+  return data
+}
+
+export async function changePassword(oldPassword, newPassword) {
+  const token = localStorage.getItem('access_token')
+  if (!token) throw new Error('Oturum bulunamadı.')
+
+  const response = await fetch(`${API_URL}/me/password`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      old_password: oldPassword,
+      new_password: newPassword,
+    }),
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || data.detail || 'Şifre güncellenemedi.')
+  }
   return data
 }

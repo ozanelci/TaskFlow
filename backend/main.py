@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from services import user_service
 from database import get_db
-from dependencies import get_current_user, require_role
+from dependencies import get_current_user
 from models import User
 from routers import tasks, task_requests, users
 from schemas import (LoginRequest, TokenResponse, UserCreate, UserResponse,UserUpdate)
@@ -146,7 +146,7 @@ async def room_already_joined_handler(request, exc):
 
 @app.get("/")
 def root():
-    return {"message": "TaskFlow API çalışıyor"}
+    return {"message": "Taskozz API çalışıyor"}
 
 
 @app.get("/db-test")
@@ -159,64 +159,7 @@ def database_test(db: Session = Depends(get_db)):
     }
 
 
-@app.post("/users", response_model=UserResponse, status_code=201)
-def create_user(
-    user_data: UserCreate,
-    current_user: User = Depends(require_role("ADMIN")),
-    db: Session = Depends(get_db)
-):
-    return user_service.create_user(
-        db=db,
-        user_data=user_data,
-    )
 
-
-@app.get("/users", response_model=list[UserResponse])
-def get_users(
-    current_user: User = Depends(require_role("ADMIN")),
-    db: Session = Depends(get_db)
-):
-    return user_service.get_users(db=db)
-
-
-@app.get("/users/{user_id}", response_model=UserResponse)
-def get_user(
-    user_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    return user_service.get_user(
-        db=db,
-        user_id=user_id,
-        current_user=current_user,
-    )
-
-
-@app.patch("/users/{user_id}", response_model=UserResponse)
-def update_user(
-    user_id: int,
-    user_data: UserUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    return user_service.update_user(
-        db=db,
-        user_id=user_id,
-        user_data=user_data,
-        current_user=current_user,
-    )
-
-
-@app.delete("/users/{user_id}")
-def delete_user(
-    user_id: int,
-    current_user: User = Depends(require_role("ADMIN")),
-    db: Session = Depends(get_db)
-):
-    return user_service.delete_user(
-        db=db,
-        user_id=user_id,
-    )
 
 @app.post(
     "/register",
@@ -243,22 +186,45 @@ def login(
         login_data=login_data,
     )
     
+from schemas import PasswordUpdate
+from security import verify_password, hash_password
+
 @app.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "full_name": current_user.full_name,
         "email": current_user.email,
-        "role": current_user.role,
-        
     }
-    
-@app.get("/admin-test")
-def admin_test(
-    current_user: User = Depends(require_role("ADMIN"))
+
+@app.patch("/me", response_model=UserResponse)
+def update_me(
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    return {
-        "message": "Admin alanına hoş geldiniz.",
-        "user": current_user.full_name,
-        "role": current_user.role
-    }    
+    if user_data.full_name is not None:
+        current_user.full_name = user_data.full_name
+    if user_data.email is not None:
+        existing = db.query(User).filter(User.email == user_data.email).first()
+        if existing and existing.id != current_user.id:
+            raise UserAlreadyExists()
+        current_user.email = user_data.email
+        
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@app.patch("/me/password")
+def update_my_password(
+    password_data: PasswordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not verify_password(password_data.old_password, current_user.password_hash):
+        raise InvalidRequestError("Eski şifre yanlış.")
+        
+    current_user.password_hash = hash_password(password_data.new_password)
+    db.commit()
+    return {"message": "Şifre başarıyla güncellendi."}
+    

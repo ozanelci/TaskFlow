@@ -1,19 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   createRoom,
   joinRoom,
-  getMyRooms,
   getRoomMembers,
   getRoomRequests,
   approveRoomRequest,
   rejectRoomRequest,
 } from '../services/roomService'
-import { getCurrentUser } from '../services/authService'
+import { useRoomContext } from '../context/RoomContext'
 import './Rooms.css'
 
 function Rooms() {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [rooms, setRooms] = useState([])
+  const { rooms, setActiveRoom, refreshRooms, loading } = useRoomContext()
 
   const [roomName, setRoomName] = useState('')
   const [joinCode, setJoinCode] = useState('')
@@ -22,35 +20,9 @@ function Rooms() {
   const [members, setMembers] = useState([])
   const [requests, setRequests] = useState([])
 
-  const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-
-  async function loadRooms() {
-    try {
-      setLoading(true)
-      setError('')
-
-      const user = await getCurrentUser()
-      const myRooms = await getMyRooms()
-
-      setCurrentUser(user)
-      setRooms(myRooms)
-    } catch (error) {
-      setError(error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-  async function loadInitialRooms() {
-    await loadRooms()
-  }
-
-  loadInitialRooms()
-}, [])
 
   async function handleCreateRoom(event) {
     event.preventDefault()
@@ -70,7 +42,7 @@ function Rooms() {
       setRoomName('')
       setSuccess('Oda başarıyla oluşturuldu.')
 
-      await loadRooms()
+      await refreshRooms()
     } catch (error) {
       setError(error.message)
     } finally {
@@ -100,7 +72,7 @@ function Rooms() {
         'Odaya katılma isteği gönderildi.',
       )
 
-      await loadRooms()
+      await refreshRooms()
     } catch (error) {
       setError(error.message)
     } finally {
@@ -110,12 +82,17 @@ function Rooms() {
 
   async function handleSelectRoom(room) {
     setSelectedRoom(room)
+    
+    if (room.membership_status === 'APPROVED') {
+      setActiveRoom(room)
+    }
+
     setError('')
     setSuccess('')
     setMembers([])
     setRequests([])
 
-    if (currentUser?.role !== 'ADMIN') {
+    if (room.role !== 'ADMIN') {
       return
     }
 
@@ -238,83 +215,75 @@ function Rooms() {
 
       <div className="rooms-top-grid">
 
-        {currentUser?.role === 'ADMIN' && (
-          <section className="rooms-card">
-            <h2>Oda Oluştur</h2>
+        <section className="rooms-card">
+          <h2>Oda Oluştur</h2>
 
-            <form
-              className="rooms-form"
-              onSubmit={handleCreateRoom}
+          <form
+            className="rooms-form"
+            onSubmit={handleCreateRoom}
+          >
+            <div className="rooms-form-group">
+              <label htmlFor="room-name">
+                Oda adı
+              </label>
+
+              <input
+                id="room-name"
+                type="text"
+                value={roomName}
+                onChange={(event) =>
+                  setRoomName(event.target.value)
+                }
+                placeholder="Örneğin: Yazılım Ekibi"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="rooms-button rooms-button-primary"
+              disabled={actionLoading}
             >
-              <div className="rooms-form-group">
-                <label htmlFor="room-name">
-                  Oda adı
-                </label>
+              {actionLoading
+                ? 'Oluşturuluyor...'
+                : 'Oda Oluştur'}
+            </button>
+          </form>
+        </section>
 
-                <input
-                  id="room-name"
-                  type="text"
-                  value={roomName}
-                  onChange={(event) =>
-                    setRoomName(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Örneğin: Yazılım Ekibi"
-                />
-              </div>
+        <section className="rooms-card">
+          <h2>Odaya Katıl</h2>
 
-              <button
-                type="submit"
-                className="rooms-button rooms-button-primary"
-                disabled={actionLoading}
-              >
-                {actionLoading
-                  ? 'Oluşturuluyor...'
-                  : 'Oda Oluştur'}
-              </button>
-            </form>
-          </section>
-        )}
+          <form
+            className="rooms-form"
+            onSubmit={handleJoinRoom}
+          >
+            <div className="rooms-form-group">
+              <label htmlFor="join-code">
+                Katılım kodu
+              </label>
 
-        {currentUser?.role === 'USER' && (
-          <section className="rooms-card">
-            <h2>Odaya Katıl</h2>
+              <input
+                id="join-code"
+                type="text"
+                value={joinCode}
+                onChange={(event) =>
+                  setJoinCode(event.target.value)
+                }
+                placeholder="Katılım kodunu gir"
+              />
+            </div>
 
-            <form
-              className="rooms-form"
-              onSubmit={handleJoinRoom}
+            <button
+              type="submit"
+              className="rooms-button rooms-button-primary"
+              disabled={actionLoading}
             >
-              <div className="rooms-form-group">
-                <label htmlFor="join-code">
-                  Katılım kodu
-                </label>
-
-                <input
-                  id="join-code"
-                  type="text"
-                  value={joinCode}
-                  onChange={(event) =>
-                    setJoinCode(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Katılım kodunu gir"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="rooms-button rooms-button-primary"
-                disabled={actionLoading}
-              >
-                {actionLoading
-                  ? 'Gönderiliyor...'
-                  : 'Katılma İsteği Gönder'}
-              </button>
-            </form>
-          </section>
-        )}
+              {actionLoading
+                ? 'Gönderiliyor...'
+                : 'Katılma İsteği Gönder'}
+            </button>
+          </form>
+        </section>
 
       </div>
 
@@ -360,7 +329,7 @@ function Rooms() {
                   </span>
                 </span>
 
-                {currentUser?.role === 'ADMIN' && (
+                {room.role === 'ADMIN' && (
                   <span className="room-code">
                     Kod: {room.join_code}
                   </span>
@@ -382,7 +351,7 @@ function Rooms() {
                 {selectedRoom.name}
               </h2>
 
-              {currentUser?.role === 'ADMIN' && (
+              {selectedRoom.role === 'ADMIN' && (
                 <p>
                   Oda üyelerini ve bekleyen istekleri yönet.
                 </p>
@@ -390,7 +359,7 @@ function Rooms() {
             </div>
           </div>
 
-          {currentUser?.role === 'ADMIN' && (
+          {selectedRoom.role === 'ADMIN' && (
             <div className="room-management-grid">
 
               <div className="room-management-section">
@@ -492,7 +461,7 @@ function Rooms() {
             </div>
           )}
 
-          {currentUser?.role === 'USER' && (
+          {selectedRoom.role === 'USER' && (
             <div className="room-user-status">
               <span>Durum</span>
 

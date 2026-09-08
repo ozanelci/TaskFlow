@@ -16,6 +16,7 @@ from exceptions import (
     TaskNotFound,
     RoomNotFound,
 )
+from dependencies import check_room_admin, check_room_user_or_admin
 
 
 def create_task_request(
@@ -23,52 +24,22 @@ def create_task_request(
     current_user: User,
     db: Session,
 ):
-    # Kişisel görev talebi
     if request_data.room_id is None:
-        request = TaskRequest(
-            title=request_data.title,
-            description=request_data.description,
-            priority=request_data.priority,
-            created_by=current_user.id,
-            room_id=None,
-        )
+        raise InvalidRequestError("Kişisel görev için görev talebi oluşturamazsınız.")
 
-        db.add(request)
-        db.commit()
-        db.refresh(request)
-
-        return request
-
-    # Oda talebi
-    room = (
-        db.query(Room)
-        .filter(Room.id == request_data.room_id)
-        .first()
-    )
-
-    if not room:
-        raise RoomNotFound()
-
-    # Kullanıcının bu odada onaylı üye olması gerekir.
-    membership = (
-        db.query(RoomMembership)
-        .filter(
-            RoomMembership.room_id == room.id,
-            RoomMembership.user_id == current_user.id,
-            RoomMembership.status == "APPROVED",
-        )
-        .first()
-    )
-
-    if not membership:
+    membership = check_room_user_or_admin(db, current_user.id, request_data.room_id)
+    
+    if membership.role == "ADMIN":
         raise ForbiddenError()
 
     request = TaskRequest(
         title=request_data.title,
         description=request_data.description,
-        priority=request_data.priority,
-        created_by=current_user.id,
-        room_id=room.id,
+        priority=request_data.priority.value if hasattr(request_data.priority, 'value') else request_data.priority,
+        status="PENDING",
+        requested_by=current_user.id,
+        room_id=request_data.room_id,
+        due_date=request_data.due_date,
     )
 
     db.add(request)
@@ -81,39 +52,48 @@ def create_task_request(
 def get_task_requests(
     db: Session,
     current_user: User,
+    room_id: int,
 ):
-    query = db.query(TaskRequest)
+    if room_id is None:
+        raise InvalidRequestError("room_id zorunludur.")
 
-    if current_user.role == "USER":
-        query = query.filter(
-            TaskRequest.created_by == current_user.id
+    membership = check_room_user_or_admin(db, current_user.id, room_id)
+
+    query = db.query(TaskRequest).filter(TaskRequest.room_id == room_id)
+
+    if membership.role == "USER":
+        query = query.filter(TaskRequest.requested_by == current_user.id)
+
+    requests = query.order_by(TaskRequest.created_at.desc()).all()
+
+    result = []
+    
+    room = db.query(Room).filter(Room.id == room_id).first()
+
+    for request in requests:
+        user = db.query(User).filter(User.id == request.requested_by).first()
+
+        result.append(
+            {
+                "id": request.id,
+                "title": request.title,
+                "description": request.description,
+                "priority": request.priority,
+                "status": request.status,
+                "requested_by": request.requested_by,
+                "room_id": request.room_id,
+                "room_name": room.name if room else None,
+                "full_name": user.full_name if user else None,
+                "email": user.email if user else None,
+                "reviewed_by": request.reviewed_by,
+                "reviewed_at": request.reviewed_at,
+                "review_comment": request.review_comment,
+                "due_date": request.due_date,
+                "created_at": request.created_at,
+            }
         )
 
-    elif current_user.role == "ADMIN":
-        # ADMIN sadece kendi odalarına ait
-        # talepleri ve kendi oluşturduğu kişisel
-        # talepleri görebilir.
-
-        owned_room_ids = (
-            db.query(Room.id)
-            .filter(
-                Room.created_by == current_user.id
-            )
-            .subquery()
-        )
-
-        query = query.filter(
-            (TaskRequest.created_by == current_user.id)
-            | (
-                TaskRequest.room_id.in_(
-                    owned_room_ids
-                )
-            )
-        )
-
-    return query.order_by(
-        TaskRequest.created_at.desc()
-    ).all()
+    return result
 
 
 def approve_task_request(
@@ -121,9 +101,6 @@ def approve_task_request(
     request_id: int,
     current_user: User,
 ):
-    if current_user.role != "ADMIN":
-        raise ForbiddenError()
-
     task_request = (
         db.query(TaskRequest)
         .filter(TaskRequest.id == request_id)
@@ -133,53 +110,22 @@ def approve_task_request(
     if not task_request:
         raise TaskNotFound()
 
+    if task_request.room_id is None:
+        raise InvalidRequestError("Geçersiz talep.")
+
     if task_request.status != "PENDING":
-        raise InvalidRequestError(
-            "Bu görev talebi zaten değerlendirilmiş."
-        )
+        raise InvalidRequestError("Bu görev talebi zaten değerlendirilmiş.")
 
-    # Oda görevi ise:
-    # Talebin ait olduğu oda bu ADMIN'in odası olmalı.
-    if task_request.room_id is not None:
-        room = (
-            db.query(Room)
-            .filter(
-                Room.id == task_request.room_id,
-                Room.created_by == current_user.id,
-            )
-            .first()
-        )
+    check_room_admin(db, current_user.id, task_request.room_id)
 
-        if not room:
-            raise ForbiddenError()
-
-        # Talebi oluşturan kullanıcı hâlâ
-        # odanın APPROVED üyesi olmalı.
-        membership = (
-            db.query(RoomMembership)
-            .filter(
-                RoomMembership.room_id == room.id,
-                RoomMembership.user_id
-                == task_request.created_by,
-                RoomMembership.status == "APPROVED",
-            )
-            .first()
-        )
-
-        if not membership:
-            raise ForbiddenError()
-
-    # Kişisel talepte ise ADMIN yalnızca
-    # kendi oluşturduğu talebi onaylayabilir.
-    elif task_request.created_by != current_user.id:
-        raise ForbiddenError()
+    requester_membership = check_room_user_or_admin(db, task_request.requested_by, task_request.room_id)
 
     new_task = Task(
         title=task_request.title,
         description=task_request.description,
         status="TODO",
         priority=task_request.priority,
-        assigned_to=task_request.created_by,
+        assigned_to=task_request.requested_by,
         created_by=current_user.id,
         due_date=task_request.due_date,
         room_id=task_request.room_id,
@@ -189,7 +135,7 @@ def approve_task_request(
 
     task_request.status = "APPROVED"
     task_request.reviewed_by = current_user.id
-    task_request.reviewed_at = datetime.now()
+    task_request.reviewed_at = datetime.utcnow()
 
     db.commit()
     db.refresh(task_request)
@@ -203,9 +149,6 @@ def reject_task_request(
     current_user: User,
     review_comment: str | None = None,
 ):
-    if current_user.role != "ADMIN":
-        raise ForbiddenError()
-
     task_request = (
         db.query(TaskRequest)
         .filter(TaskRequest.id == request_id)
@@ -215,34 +158,17 @@ def reject_task_request(
     if not task_request:
         raise TaskNotFound()
 
+    if task_request.room_id is None:
+        raise InvalidRequestError("Geçersiz talep.")
+
     if task_request.status != "PENDING":
-        raise InvalidRequestError(
-            "Bu görev talebi zaten değerlendirilmiş."
-        )
+        raise InvalidRequestError("Bu görev talebi zaten değerlendirilmiş.")
 
-    # Oda talebi ise yalnızca
-    # o odanın sahibi ADMIN reddedebilir.
-    if task_request.room_id is not None:
-        room = (
-            db.query(Room)
-            .filter(
-                Room.id == task_request.room_id,
-                Room.created_by == current_user.id,
-            )
-            .first()
-        )
-
-        if not room:
-            raise ForbiddenError()
-
-    # Kişisel talep ise yalnızca
-    # talebin oluşturucusu olan ADMIN yönetebilir.
-    elif task_request.created_by != current_user.id:
-        raise ForbiddenError()
+    check_room_admin(db, current_user.id, task_request.room_id)
 
     task_request.status = "REJECTED"
     task_request.reviewed_by = current_user.id
-    task_request.reviewed_at = datetime.now()
+    task_request.reviewed_at = datetime.utcnow()
     task_request.review_comment = review_comment
 
     db.commit()

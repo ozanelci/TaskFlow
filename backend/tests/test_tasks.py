@@ -57,71 +57,12 @@ def test_login_success(client, test_user):
     assert "access_token" in data
     assert data["token_type"] == "bearer"
     
-def test_user_cannot_access_admin(client, test_user):
-    login_response = client.post(
-        "/login",
-        json={
-            "email": test_user.email,
-            "password": "Test123!"
-        }
-    )
 
-    assert login_response.status_code == 200
-
-    token = login_response.json()["access_token"]
-
-    response = client.get(
-        "/admin-test",
-        headers={
-            "Authorization": f"Bearer {token}"
-        }
-    )
-
-    assert response.status_code == 403
-    
-def test_admin_can_access_admin(client, db):
-    admin = User(
-        full_name="Admin User",
-        email="admin@example.com",
-        password_hash=hash_password("Admin123!"),
-        role="ADMIN",
-        is_active=True
-    )
-
-    db.add(admin)
-    db.commit()
-    db.refresh(admin)
-
-    login_response = client.post(
-        "/login",
-        json={
-            "email": "admin@example.com",
-            "password": "Admin123!"
-        }
-    )
-
-    assert login_response.status_code == 200
-
-    token = login_response.json()["access_token"]
-
-    response = client.get(
-        "/admin-test",
-        headers={
-            "Authorization": f"Bearer {token}"
-        }
-    )
-
-    assert response.status_code == 200
-
-    db.delete(admin)
-    db.commit()    
-    
 def test_user_cannot_update_another_user(client, db, test_user):
     another_user = User(
         full_name="Another User",
         email="another@example.com",
         password_hash=hash_password("Test123!"),
-        role="USER",
         is_active=True
     )
 
@@ -201,13 +142,13 @@ def test_user_cannot_update_restricted_field(client, test_user):
             "Authorization": f"Bearer {token}"
         },
         json={
-            "role": "ADMIN"
+            "email": "hacked@example.com"
         }
     )
 
     assert response.status_code == 403
     
-def test_user_cannot_delete_user(client, test_user):
+def test_user_can_delete_self(client, test_user):
     response = client.delete(
         f"/users/{test_user.id}",
         headers={
@@ -223,4 +164,4 @@ def test_user_cannot_delete_user(client, test_user):
         }
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 200

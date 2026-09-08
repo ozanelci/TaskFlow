@@ -34,7 +34,6 @@ def create_user(
         full_name=user_data.full_name,
         email=user_data.email,
         password_hash=hashed_password,
-        role=user_data.role,
     )
 
     db.add(new_user)
@@ -53,7 +52,7 @@ def get_user(
     user_id: int,
     current_user: User,
 ):
-    if current_user.role == "USER" and current_user.id != user_id:
+    if current_user.id != user_id:
         raise ForbiddenError()
 
     user = (
@@ -74,7 +73,7 @@ def update_user(
     user_data: UserUpdate,
     current_user: User,
 ):
-    if current_user.role == "USER" and current_user.id != user_id:
+    if current_user.id != user_id:
         raise ForbiddenError()
 
     update_data = user_data.model_dump(exclude_unset=True)
@@ -88,12 +87,11 @@ def update_user(
                     "Son teslim tarihi geçmiş bir tarih olamaz."
                 )
 
-    if current_user.role == "USER":
-        allowed_fields = {"full_name"}
+    allowed_fields = {"full_name"}
 
-        for field in update_data:
-            if field not in allowed_fields:
-                raise ForbiddenError()
+    for field in update_data:
+        if field not in allowed_fields:
+            raise ForbiddenError()
 
     user = (
         db.query(User)
@@ -161,7 +159,6 @@ def login(
     access_token = create_access_token(
         {
             "sub": str(user.id),
-            "role": user.role,
         }
     )
 
@@ -189,7 +186,6 @@ def register_user(
         full_name=user_data.full_name,
         email=user_data.email,
         password_hash=hashed_password,
-        role="USER",
     )
 
     db.add(new_user)

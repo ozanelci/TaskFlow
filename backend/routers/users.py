@@ -18,11 +18,10 @@ def get_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role != "ADMIN":
-        from exceptions import ForbiddenError
-        raise ForbiddenError()
-
-    return user_service.get_users(db)
+    # TODO: This global endpoint is unsafe in the new room-based architecture.
+    # It must be refactored to only return users sharing a room with current_user.
+    from exceptions import InvalidRequestError
+    raise InvalidRequestError("Global user listing is pending room-context refactor.")
 
 
 @router.get(
@@ -67,7 +66,7 @@ def delete_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role != "ADMIN":
+    if current_user.id != user_id:
         from exceptions import ForbiddenError
         raise ForbiddenError()
 
