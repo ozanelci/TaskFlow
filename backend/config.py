@@ -1,10 +1,11 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
-    TEST_DATABASE_URL: str
+    TEST_DATABASE_URL: Optional[str] = None
 
     class Config:
         env_file = ".env"
