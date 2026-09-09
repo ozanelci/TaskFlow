@@ -11,7 +11,8 @@ import { Badge } from '../components/ui/Badge'
 import { Icons } from '../components/ui/Icons'
 
 function TaskDetail() {
-  const { id } = useParams()
+  const { taskId } = useParams()
+  const id = taskId
   const navigate = useNavigate()
   const { activeRoom } = useRoomContext()
 
@@ -132,7 +133,7 @@ function TaskDetail() {
         </Link>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 32 }}>
+      <div className="task-detail-grid">
         {/* Left Side: Detail */}
         <div>
           <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 16 }}>

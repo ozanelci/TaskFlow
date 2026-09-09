@@ -6,8 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Icons } from '../components/ui/Icons';
 import './Auth.css';
 
-// Using fetch directly as per original implementation, or if there's an authService register:
-const API_URL = 'http://127.0.0.1:8000';
+import { register } from '../services/authService';
 
 function Register() {
   const [fullName, setFullName] = useState('');
@@ -29,21 +28,7 @@ function Register() {
       setLoading(true);
       setError('');
 
-      const response = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: fullName,
-          email: email,
-          password: password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Kayıt başarısız oldu.');
-      }
+      await register(fullName, email, password);
 
       navigate('/login');
     } catch (err) {

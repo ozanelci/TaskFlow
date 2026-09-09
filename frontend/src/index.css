@@ -72,6 +72,27 @@ body {
   line-height: 1.5;
 }
 
+
+.taskozz-app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .taskozz-app-layout {
+    flex-direction: column;
+  }
+}
+
+
+.app-main-content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+  background-color: var(--background);
+}
+
 /* Global Reset Utilities */
 a {
   text-decoration: none;
@@ -90,4 +111,32 @@ h1, h2, h3, h4, h5, h6 {
 
 p {
   margin: 0;
+}
+
+/* Responsive Grid for Task Detail */
+.task-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+}
+
+@media (max-width: 768px) {
+  .task-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Responsive Grid for Task Requests Form */
+.task-request-form-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 2fr 150px 150px;
+  align-items: end;
+}
+
+@media (max-width: 768px) {
+  .task-request-form-grid {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 }

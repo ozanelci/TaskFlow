@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCurrentUser, updateProfile, changePassword } from '../services/authService'
+import { deleteUser } from '../services/userService'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
@@ -14,6 +15,8 @@ function Profile() {
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [userId, setUserId] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -27,6 +30,7 @@ function Profile() {
         if (!cancelled) {
           setFullName(user.full_name)
           setEmail(user.email)
+          setUserId(user.id)
           setLoading(false)
         }
       } catch (err) {
@@ -79,6 +83,21 @@ function Profile() {
       setError(err.message)
     } finally {
       setActionLoading(false)
+    }
+  }
+
+
+  async function handleDeleteAccount() {
+    if (!userId) return
+    try {
+      setActionLoading(true)
+      await deleteUser(userId)
+      localStorage.removeItem('access_token')
+      window.location.href = '/login'
+    } catch (err) {
+      setError(err.message)
+      setActionLoading(false)
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -156,6 +175,50 @@ function Profile() {
             </div>
           </form>
         </Card>
+
+        <Card padding="lg" style={{ border: '1px solid var(--danger-light)' }}>
+          <h2 style={{ fontSize: 18, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16, color: 'var(--danger-text)' }}>Hesabı Sil</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
+            Hesabınızı sildiğinizde, tüm kişisel verileriniz pasif hale getirilecek ve sisteme erişiminiz kalıcı olarak sonlandırılacaktır. 
+            Bu işlem geri alınamaz.
+          </p>
+          
+          {!showDeleteConfirm ? (
+            <Button 
+              type="button" 
+              variant="danger" 
+              onClick={() => setShowDeleteConfirm(true)}
+              isLoading={actionLoading}
+            >
+              Hesabımı Sil
+            </Button>
+          ) : (
+            <div style={{ background: 'var(--danger-light)', padding: 16, borderRadius: 'var(--radius-sm)' }}>
+              <p style={{ color: 'var(--danger-text)', fontWeight: 500, marginBottom: 16 }}>
+                Hesabınızı silmek istediğinizden emin misiniz?
+              </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <Button 
+                  type="button" 
+                  variant="danger" 
+                  onClick={handleDeleteAccount}
+                  isLoading={actionLoading}
+                >
+                  Evet, Sil
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="secondary" 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={actionLoading}
+                >
+                  İptal
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+
       </div>
     </main>
   )

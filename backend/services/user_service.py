@@ -82,7 +82,10 @@ def update_user(
         new_due_date = update_data["due_date"]
 
         if new_due_date is not None:
-            if new_due_date < datetime.now(new_due_date.tzinfo):
+            if new_due_date.tzinfo is not None:
+                new_due_date = new_due_date.astimezone().replace(tzinfo=None)
+                update_data["due_date"] = new_due_date
+            if new_due_date < datetime.now():
                 raise InvalidRequestError(
                     "Son teslim tarihi geçmiş bir tarih olamaz."
                 )

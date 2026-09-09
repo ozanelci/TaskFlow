@@ -31,7 +31,7 @@ function TaskRequests() {
         if (cancelled) return
 
         if (activeRoom) {
-          const data = await getTaskRequests()
+          const data = await getTaskRequests(activeRoom.id)
           if (!cancelled) setRequests(data)
         }
       } catch (err) {
@@ -46,8 +46,10 @@ function TaskRequests() {
 
   async function refreshRequests() {
     try {
-      const data = await getTaskRequests()
-      setRequests(data)
+      if (activeRoom) {
+        const data = await getTaskRequests(activeRoom.id)
+        setRequests(data)
+      }
     } catch (err) {
       setError(err.message)
     }
@@ -166,7 +168,7 @@ function TaskRequests() {
         {/* Form area */}
         <Card padding="lg">
           <h2 style={{ fontSize: 18, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>Yeni Talep Oluştur</h2>
-          <form onSubmit={handleCreateRequest} style={{ display: 'grid', gap: 16, gridTemplateColumns: '1fr 2fr 150px 150px', alignItems: 'end' }}>
+          <form onSubmit={handleCreateRequest} className="task-request-form-grid">
             <Input
               label="Başlık"
               value={title}

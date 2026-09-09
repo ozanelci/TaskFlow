@@ -1,108 +1,32 @@
+import { fetchApi } from "./apiClient"
+
 export async function createTaskRequest(requestData) {
-  const token = localStorage.getItem('access_token')
-
-  const response = await fetch(
-    'http://127.0.0.1:8000/task-requests',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(requestData),
-    },
-  )
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || 'Talep oluşturulamadı.',
-    )
-  }
-
-  return data
+  return await fetchApi("/task-requests", {
+    method: "POST",
+    body: JSON.stringify(requestData),
+  })
 }
 
-export async function getTaskRequests() {
-  const token = localStorage.getItem('access_token')
-
-  const response = await fetch(
-    'http://127.0.0.1:8000/task-requests',
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  )
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || 'Talepler alınamadı.',
-    )
-  }
-
-  return data
-}
-
-export async function approveTaskRequest(requestId) {
-  const token = localStorage.getItem('access_token')
-
-  const response = await fetch(
-    `http://127.0.0.1:8000/task-requests/${requestId}/approve`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  )
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || 'Talep onaylanamadı.',
-    )
-  }
-
-  return data
-}
-
-export async function rejectTaskRequest(
-  requestId,
-  reviewComment = '',
-) {
-  const token = localStorage.getItem('access_token')
-
-  const url =
-    `http://127.0.0.1:8000/task-requests/${requestId}/reject`
-
+export async function getTaskRequests({ room_id, status, skip = 0, limit = 50 }) {
   const params = new URLSearchParams()
+  if (room_id) params.append("room_id", room_id)
+  if (status) params.append("status", status)
+  params.append("skip", skip)
+  params.append("limit", limit)
 
-  if (reviewComment) {
-    params.append('review_comment', reviewComment)
-  }
+  return await fetchApi("/task-requests?" + params.toString())
+}
 
-  const response = await fetch(
-    `${url}?${params.toString()}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  )
+export async function approveTaskRequest(requestId, adminComment) {
+  return await fetchApi("/task-requests/" + requestId + "/approve", {
+    method: "POST",
+    body: JSON.stringify({ admin_comment: adminComment }),
+  })
+}
 
-  const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || 'Talep reddedilemedi.',
-    )
-  }
-
-  return data
+export async function rejectTaskRequest(requestId, adminComment) {
+  return await fetchApi("/task-requests/" + requestId + "/reject", {
+    method: "POST",
+    body: JSON.stringify({ admin_comment: adminComment }),
+  })
 }

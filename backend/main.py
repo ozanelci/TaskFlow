@@ -27,7 +27,7 @@ from exceptions import (
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","http://localhost:5174"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://10.3.0.36:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

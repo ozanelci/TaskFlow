@@ -162,6 +162,11 @@ class Task(Base):
         nullable=True
     )
 
+    @property
+    def deadline_status(self) -> str:
+        from utils import get_deadline_status
+        return get_deadline_status(self)
+
     priority: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

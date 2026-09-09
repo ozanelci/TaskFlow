@@ -1,90 +1,113 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { getCurrentUser } from '../services/authService'
-import {
-  getTasks,
-  getPersonnel,
-  getTaskSummary
-} from '../services/taskService'
+import { getTasks, getPersonnel, getTaskSummary } from '../services/taskService'
 import { useRoomContext } from '../context/RoomContext'
+import { 
+  CircleDashed, 
+  Activity, 
+  CheckCircle2, 
+  XCircle, 
+  Calendar, 
+  Briefcase, 
+  Inbox, 
+  AlertCircle 
+} from 'lucide-react'
 import './Dashboard.css'
 
-// Inline SVG Icons (Lucide)
-const Icons = {
-  CircleDashed: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M17.6 5.266a10 10 0 0 1 2.902 2.902"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M18.734 17.6a10 10 0 0 1-2.902 2.902"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M8.734 18.734a10 10 0 0 1-2.902-2.902"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M5.266 6.266a10 10 0 0 1 2.902-2.902"/></svg>
-  ),
-  Activity: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-  ),
-  AlertCircle: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-  ),
-  CheckCircle2: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-  ),
-  Calendar: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-  ),
-  Briefcase: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-  ),
-  Inbox: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-  )
-}
-
-function getInitials(name) {
-  if (!name) return 'U'
-  const parts = name.trim().split(' ')
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return name.substring(0, 2).toUpperCase()
-}
-
 function Dashboard() {
-  const { activeRoom } = useRoomContext()
-
   const [user, setUser] = useState(null)
-  const [summary, setSummary] = useState(null)
-  
-  // Selected Context Data
-  const [selectedStatus, setSelectedStatus] = useState(null)
-  const [selectedTasks, setSelectedTasks] = useState([])
-  const [isTasksLoading, setIsTasksLoading] = useState(false)
-  
-  // Admin Data
+  const [summary, setSummary] = useState({})
   const [personnel, setPersonnel] = useState([])
+  const [selectedStatus, setSelectedStatus] = useState('TODO')
   const [selectedPersonnel, setSelectedPersonnel] = useState(null)
+  const [selectedTasks, setSelectedTasks] = useState([])
+  const [upcomingTasks, setUpcomingTasks] = useState([])
   
-  // Main Load State
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isTasksLoading, setIsTasksLoading] = useState(false)
 
-  const handleStatusClick = useCallback(async (status, force = false) => {
-    if (selectedStatus === status && !force) {
-      return
+  const { activeRoom } = useRoomContext()
+
+  const loadDashboard = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+
+      const roomId = activeRoom ? activeRoom.id : null
+
+      const sumData = await getTaskSummary(roomId)
+      setSummary(sumData)
+
+      if (activeRoom && activeRoom.role === 'ADMIN') {
+        const pData = await getPersonnel(activeRoom.id)
+        setPersonnel(pData)
+      } else {
+        setPersonnel([])
+      }
+
+      // Default load TODO tasks
+      setSelectedStatus('TODO')
+      setSelectedPersonnel(null)
+      setIsTasksLoading(true)
+      
+      try {
+        const data = await getTasks({
+          status: 'TODO',
+          room_id: roomId,
+          page: 0,
+          pageSize: 100
+        })
+        setSelectedTasks(data.tasks || [])
+
+        // Load Upcoming tasks
+        const upcomingData = await getTasks({
+          deadline_status: 'UPCOMING',
+          room_id: roomId,
+          page: 0,
+          pageSize: 5
+        })
+        setUpcomingTasks(upcomingData.tasks || [])
+      } catch {
+        setSelectedTasks([])
+        setUpcomingTasks([])
+      } finally {
+        setIsTasksLoading(false)
+      }
+
+      setLoading(false)
+    } catch (err) {
+      console.error(err)
+      setError('Dashboard verileri yüklenemedi. Lütfen tekrar deneyin.')
+      setLoading(false)
     }
-    
+  }, [activeRoom])
+
+  // Re-fetch when activeRoom changes
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadDashboard()
+  }, [loadDashboard])
+
+  const handleStatusClick = async (status, force = false, roomIdOverride = undefined) => {
+    if (!force && selectedStatus === status && !selectedPersonnel) return
+
     setSelectedStatus(status)
     setSelectedPersonnel(null)
     setIsTasksLoading(true)
-    
+
     try {
-      let params = { 
-        page: 0, 
-        pageSize: 100, 
-        room_id: activeRoom ? activeRoom.id : undefined 
-      }
+      const currentRoomId = roomIdOverride !== undefined ? roomIdOverride : (activeRoom ? activeRoom.id : null)
       
-      if (status === 'OVERDUE') {
-        params.deadline_status = 'OVERDUE'
-      } else {
-        params.status = status
-      }
-      
-      const data = await getTasks(params)
+      const data = await getTasks({
+        status: status,
+        room_id: currentRoomId,
+        page: 0,
+        pageSize: 100
+      })
       setSelectedTasks(data.tasks || [])
     } catch (err) {
       console.error(err)
@@ -92,51 +115,11 @@ function Dashboard() {
     } finally {
       setIsTasksLoading(false)
     }
-  }, [activeRoom, selectedStatus])
+  }
 
-  const loadDashboard = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError('')
-
-      const userData = await getCurrentUser()
-      const summaryData = await getTaskSummary(activeRoom ? activeRoom.id : undefined)
-
-      setUser(userData)
-      setSummary(summaryData)
-
-      if (activeRoom?.role === 'ADMIN') {
-        const personnelData = await getPersonnel(activeRoom.id)
-        setPersonnel(personnelData)
-      } else {
-        setPersonnel([])
-      }
-      
-      // Auto-select IN_PROGRESS if we have any, otherwise TODO
-      if (summaryData.in_progress > 0) {
-        handleStatusClick('IN_PROGRESS', true)
-      } else {
-        handleStatusClick('TODO', true)
-      }
-      
-    } catch (err) {
-      console.error(err)
-      setError('Dashboard verileri alınamadı.')
-    } finally {
-      setLoading(false)
-    }
-  }, [activeRoom, handleStatusClick])
-
-  useEffect(() => {
-    // eslint-disable-next-line
-    loadDashboard()
-    setSelectedPersonnel(null)
-  }, [loadDashboard])
-
-  async function handlePersonnelClick(person) {
+  const handlePersonnelClick = async (person) => {
     if (selectedPersonnel?.id === person.id) {
       setSelectedPersonnel(null)
-      // Revert to selected status tasks
       if (selectedStatus) {
         handleStatusClick(selectedStatus, true)
       }
@@ -144,7 +127,7 @@ function Dashboard() {
     }
     
     setSelectedPersonnel(person)
-    setSelectedStatus(null) // Clear status selection
+    setSelectedStatus(null)
     setIsTasksLoading(true)
     
     try {
@@ -163,9 +146,18 @@ function Dashboard() {
     }
   }
 
+  const getInitials = (name) => {
+    if (!name) return 'U'
+    const parts = name.split(' ')
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+  }
+
   if (loading) {
     return (
-      <main className="dashboard">
+      <main className="dashboard-main">
         <div className="loading-state">
           <div className="loading-spinner"></div>
           <p>Dashboard hazırlanıyor...</p>
@@ -176,11 +168,16 @@ function Dashboard() {
 
   if (error) {
     return (
-      <main className="dashboard">
+      <main className="dashboard-main">
         <div className="error-state">
-          <Icons.AlertCircle className="error-icon" />
+          <AlertCircle size={48} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
           <p>{error}</p>
-          <button onClick={loadDashboard} style={{marginTop: 16, padding: '8px 16px', borderRadius: 8, border: '1px solid #ccc', background: '#fff', cursor: 'pointer'}}>Tekrar Dene</button>
+          <button 
+            onClick={loadDashboard} 
+            style={{marginTop: 16, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600}}
+          >
+            Tekrar Dene
+          </button>
         </div>
       </main>
     )
@@ -188,11 +185,11 @@ function Dashboard() {
 
   const getStatusConfig = (status) => {
     switch (status) {
-      case 'TODO': return { label: 'To Do', className: 'status-todo', icon: <Icons.CircleDashed /> }
-      case 'IN_PROGRESS': return { label: 'In Progress', className: 'status-progress', icon: <Icons.Activity /> }
-      case 'OVERDUE': return { label: 'Overdue', className: 'status-overdue', icon: <Icons.AlertCircle /> }
-      case 'DONE': return { label: 'Done', className: 'status-done', icon: <Icons.CheckCircle2 /> }
-      default: return { label: 'Görevler', className: '', icon: <Icons.CircleDashed /> }
+      case 'TODO': return { label: 'To Do', className: 'status-todo', icon: <CircleDashed size={20} /> }
+      case 'IN_PROGRESS': return { label: 'In Progress', className: 'status-progress', icon: <Activity size={20} /> }
+      case 'DONE': return { label: 'Done', className: 'status-done', icon: <CheckCircle2 size={20} /> }
+      case 'CANCELLED': return { label: 'Cancelled', className: 'status-cancelled', icon: <XCircle size={20} /> }
+      default: return { label: 'Görevler', className: '', icon: <CircleDashed size={20} /> }
     }
   }
 
@@ -205,6 +202,28 @@ function Dashboard() {
       task.priority === 'HIGH' ? 'Yüksek' :
       task.priority === 'MEDIUM' ? 'Orta' : 'Düşük'
 
+    // Check if task is overdue based on current date
+    const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE' && task.status !== 'CANCELLED'
+
+    const getRelativeDateLabel = (dateStr) => {
+      if (!dateStr) return 'Tarih Yok'
+      
+      const due = new Date(dateStr)
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      
+      // Normalize times for date comparison
+      due.setHours(0, 0, 0, 0)
+      today.setHours(0, 0, 0, 0)
+      tomorrow.setHours(0, 0, 0, 0)
+      
+      if (due.getTime() === today.getTime()) return 'Bugün'
+      if (due.getTime() === tomorrow.getTime()) return 'Yarın'
+      
+      return due.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' }) // 12 Eylül
+    }
+
     return (
       <Link to={`/tasks/${task.id}`} className="task-row" key={task.id}>
         <div className="task-title-group">
@@ -214,9 +233,9 @@ function Dashboard() {
           )}
         </div>
         
-        <div className="task-meta">
-          <Icons.Calendar />
-          <span>{task.due_date ? new Date(task.due_date).toLocaleDateString('tr-TR') : 'Tarih Yok'}</span>
+        <div className={`task-meta ${isOverdue ? 'overdue' : ''}`}>
+          <Calendar size={16} />
+          <span>{getRelativeDateLabel(task.due_date)}</span>
         </div>
         
         <div className="task-meta">
@@ -224,12 +243,18 @@ function Dashboard() {
         </div>
         
         <div className="task-assignee">
-          <div className="avatar">
-             {/* If we had the actual assignee name, we would put it here.
-                 For now, we just use a generic or the logged in user's initial if assigned to them.
-                 If it's a corporate room, we can guess the initial. We'll just put 'U' or task assignee id */}
-             {task.assigned_to === user.id ? getInitials(user.full_name) : getInitials('Personel')}
+          <div className="assignee-avatar" title="Atanan Kişi">
+             {task.assigned_to === user?.id ? getInitials(user?.full_name) : (
+               personnel.find(p => p.id === task.assigned_to) 
+                 ? getInitials(personnel.find(p => p.id === task.assigned_to).full_name) 
+                 : getInitials('Personel')
+             )}
           </div>
+          <span className="assignee-name" style={{ marginLeft: 8, fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+            {task.assigned_to === user?.id ? user?.full_name : (
+               personnel.find(p => p.id === task.assigned_to)?.full_name || 'Personel'
+            )}
+          </span>
         </div>
       </Link>
     )
@@ -239,28 +264,39 @@ function Dashboard() {
     ? Math.round((summary.my_done / summary.my_total) * 100)
     : 0
 
-  const teamTotal = summary.total
-  const teamDone = summary.done
+  const teamTotal = summary.total || 0
+  const teamDone = summary.done || 0
   const teamCompletionRate = teamTotal > 0
     ? Math.round((teamDone / teamTotal) * 100)
     : 0
 
+  const statusList = ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED']
+
+  const canCreateTask = !activeRoom || activeRoom.role === 'ADMIN'
+
   return (
-    <main className="dashboard">
-      <div className="dashboard-header">
-        <div className="dashboard-header-left">
-          <h1>Merhaba, {user?.full_name?.split(' ')[0] || 'Kullanıcı'} 👋</h1>
-          <p>Bugün işler nasıl gidiyor? İşte görevlerinin özeti.</p>
+    <main className="dashboard-main">
+      <header className="dashboard-header">
+        <div className="header-titles">
+          <h1>Dashboard</h1>
+          <p>Taskozz görevlerinin genel görünümü.</p>
         </div>
         
-        <div className="dashboard-context-badge">
-          <Icons.Briefcase />
-          <span>{activeRoom ? activeRoom.name : 'Kişisel Alan'}</span>
+        <div className="header-actions">
+          <div className="header-context">
+            <Briefcase size={16} />
+            <span>{activeRoom ? activeRoom.name : 'Kişisel Alan'}</span>
+          </div>
+          {canCreateTask && (
+            <Link to="/tasks" className="btn-primary">
+              + Görev Ekle
+            </Link>
+          )}
         </div>
-      </div>
+      </header>
 
-      <div className="dashboard-summary-cards">
-        {['TODO', 'IN_PROGRESS', 'OVERDUE', 'DONE'].map(status => {
+      <div className="status-cards-grid">
+        {statusList.map(status => {
           const config = getStatusConfig(status)
           const isActive = selectedStatus === status
           const count = summary[status.toLowerCase()] || 0
@@ -283,77 +319,99 @@ function Dashboard() {
         })}
       </div>
 
-      <section className="selected-tasks-area">
-        <div className="selected-tasks-header">
-          <h2>
-            {selectedPersonnel ? (
-              <>{selectedPersonnel.full_name} Görevleri</>
-            ) : selectedStatus ? (
-              <>{getStatusConfig(selectedStatus).label} Görevleri</>
+      <section className={`dashboard-content ${activeRoom?.role === 'ADMIN' ? 'has-admin' : ''}`}>
+        
+        {/* Main Task List Panel */}
+        <div className="tasks-panel-container">
+          <div className="tasks-panel">
+            <div className="panel-header">
+              <h2>
+                {selectedPersonnel ? (
+                  `${selectedPersonnel.full_name} Görevleri`
+                ) : selectedStatus ? (
+                  `${getStatusConfig(selectedStatus).label} Görevleri`
+                ) : (
+                  'Görevler'
+                )}
+              </h2>
+            </div>
+
+            {isTasksLoading ? (
+              <div className="loading-state">
+                <div className="loading-spinner"></div>
+              </div>
+            ) : selectedTasks.length === 0 ? (
+              <div className="empty-state">
+                <Inbox size={48} />
+                <h3>Bu durumda henüz görev yok</h3>
+                <p>Farklı bir durum seçebilir veya yeni görev ekleyebilirsiniz.</p>
+              </div>
             ) : (
-              <>Görevler</>
+              <div className="tasks-list">
+                {selectedTasks.map(renderTaskRow)}
+              </div>
             )}
-          </h2>
+          </div>
+
+          {/* Upcoming Deadlines Panel */}
+          <div className="tasks-panel upcoming-panel" style={{ marginTop: '2rem' }}>
+            <div className="panel-header">
+              <h2>Yaklaşan Teslimler</h2>
+            </div>
+            {upcomingTasks.length === 0 ? (
+              <div className="empty-state" style={{ padding: '2rem' }}>
+                <Calendar size={32} />
+                <h3 style={{ fontSize: '1rem', marginTop: '1rem' }}>Yaklaşan teslim tarihi yok</h3>
+              </div>
+            ) : (
+              <div className="tasks-list">
+                {upcomingTasks.map(renderTaskRow)}
+              </div>
+            )}
+          </div>
         </div>
 
-        {isTasksLoading ? (
-           <div className="loading-state">
-             <div className="loading-spinner"></div>
-           </div>
-        ) : selectedTasks.length === 0 ? (
-          <div className="empty-state">
-            <Icons.Inbox />
-            <h3>Bu durumda henüz görev yok</h3>
-            <p>Yeni bir görev ekleyerek çalışmaya başlayabilirsiniz.</p>
-          </div>
-        ) : (
-          <div className="tasks-list">
-            {selectedTasks.map(renderTaskRow)}
-          </div>
-        )}
-      </section>
-
-      {/* ADMIN Section preserved as requested, cleaned up */}
-      {activeRoom?.role === 'ADMIN' && (
-        <section className="admin-area">
-          <div className="admin-card">
-            <h2>Ekip Başarısı</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Senin Tamamlanma Oranın</span>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>%{myCompletionRate}</div>
+        {/* Admin Sidebar Panel */}
+        {activeRoom?.role === 'ADMIN' && (
+          <div className="admin-panel">
+            <div className="admin-card">
+              <h2>Ekip Başarısı</h2>
+              <div className="stat-group">
+                <span className="stat-label">Senin Tamamlanma Oranın</span>
+                <span className="stat-value success">%{myCompletionRate}</span>
               </div>
-              <div style={{ height: 1, background: 'var(--border-light)' }}></div>
-              <div>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Genel Ekip Başarısı</span>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--primary)' }}>%{teamCompletionRate}</div>
+              <div className="divider"></div>
+              <div className="stat-group">
+                <span className="stat-label">Genel Ekip Başarısı</span>
+                <span className="stat-value primary">%{teamCompletionRate}</span>
               </div>
             </div>
-          </div>
 
-          <div className="admin-card">
-            <h2>Personeller</h2>
-            {personnel.length > 0 ? (
-              <div className="personnel-list">
-                {personnel.map(person => (
-                  <div 
-                    key={person.id} 
-                    className={`personnel-item ${selectedPersonnel?.id === person.id ? 'active' : ''}`}
-                    onClick={() => handlePersonnelClick(person)}
-                  >
-                    <div className="avatar" style={{ marginRight: 12 }}>
-                      {getInitials(person.full_name)}
+            <div className="admin-card">
+              <h2>Personeller</h2>
+              {personnel.length > 0 ? (
+                <div className="personnel-list">
+                  {personnel.map(person => (
+                    <div 
+                      key={person.id} 
+                      className={`personnel-item ${selectedPersonnel?.id === person.id ? 'active' : ''}`}
+                      onClick={() => handlePersonnelClick(person)}
+                    >
+                      <div className="assignee-avatar">
+                        {getInitials(person.full_name)}
+                      </div>
+                      {person.full_name}
                     </div>
-                    {person.full_name}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Henüz odada personel bulunmuyor.</p>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Odada personel bulunmuyor.</p>
+              )}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+
+      </section>
     </main>
   )
 }

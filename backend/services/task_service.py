@@ -24,6 +24,9 @@ def create_task(
     if task_data.due_date is not None:
         from datetime import datetime
 
+        if task_data.due_date.tzinfo is not None:
+            task_data.due_date = task_data.due_date.astimezone().replace(tzinfo=None)
+
         if task_data.due_date < datetime.now():
             raise InvalidRequestError(
                 "Son tarih geçmiş bir tarih olamaz."
@@ -104,9 +107,11 @@ def update_task(
             ]):
                 raise ForbiddenError()
 
-    # Son tarih kontrolü
     if task_data.due_date is not None:
         from datetime import datetime
+
+        if task_data.due_date.tzinfo is not None:
+            task_data.due_date = task_data.due_date.astimezone().replace(tzinfo=None)
 
         if task_data.due_date < datetime.now():
             raise InvalidRequestError(

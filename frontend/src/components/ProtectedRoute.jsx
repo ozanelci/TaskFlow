@@ -51,10 +51,12 @@ function ProtectedRoute({ children }) {
   }
 
   return (
-    <>
+    <div className="taskozz-app-layout">
       <Navigation />
-      {children}
-    </>
+      <main className="app-main-content">
+        {children}
+      </main>
+    </div>
   )
 }
 
